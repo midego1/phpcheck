@@ -150,7 +150,9 @@
   .tabs b{font-weight:600}
 
   /* result cards */
-  .results{display:flex;flex-direction:column;gap:12px}
+  .results{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .rc{min-width:0}
+  .rc pre{max-width:100%}
   .rc .card-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:16px 20px 0}
   .rc .host{font-weight:600;font-size:15px;word-break:break-all}
   .rc .ver{font-family:var(--mono);font-size:13px;color:hsl(var(--muted-foreground))}
@@ -174,9 +176,10 @@
   th,td{text-align:left;padding:8px 10px;border-bottom:1px solid hsl(var(--border));vertical-align:top}
   th{color:hsl(var(--muted-foreground));font-weight:500;height:36px}
   tr:last-child td{border-bottom:0}
-  .tbl{border:1px solid hsl(var(--border));border-radius:calc(var(--radius) - 2px);overflow:hidden}
+  .tbl{border:1px solid hsl(var(--border));border-radius:calc(var(--radius) - 2px);overflow-x:auto}
   .ai{display:inline-flex;gap:2px;align-items:center;margin-left:auto}
-  .ai span{font-size:12.5px;color:hsl(var(--muted-foreground));margin-right:4px}
+  .ai span{font-size:12.5px;color:hsl(var(--muted-foreground));margin-right:4px;white-space:nowrap}
+  .ai{flex-wrap:wrap}
   .ai .btn{height:30px;padding:0 9px;font-size:12.5px}
 
   /* sidebar bits */
@@ -194,8 +197,10 @@
   .kv{display:flex;flex-direction:column;gap:8px;font-size:13px}
   .kv div{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
 
-  .prompts{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-  .prompts .card{display:flex;flex-direction:column}
+  .prompts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+  .prompts .card{display:flex;flex-direction:column;min-width:0}
+  .prompts .card-f{flex-direction:column;align-items:flex-start;gap:10px}
+  .prompts .ai{margin-left:0}
   .prompts .card-c{flex:1;padding-top:14px}
   .prompts pre{max-height:240px;font-size:12px}
   .prompts .card-f{padding-top:0}
@@ -203,8 +208,8 @@
   footer a{text-decoration:underline}
   .toast{position:fixed;bottom:20px;right:20px;background:hsl(var(--background));color:hsl(var(--foreground));border:1px solid hsl(var(--border));box-shadow:0 10px 30px -10px rgb(0 0 0/.3);padding:10px 14px;border-radius:var(--radius);font-size:13.5px;font-weight:500;opacity:0;transform:translateY(8px);transition:all .18s ease-out;pointer-events:none;z-index:50}
   .toast.show{opacity:1;transform:none}
-  @media(max-width:1000px){.layout{grid-template-columns:1fr}.side{position:static;max-height:none;overflow:visible}.prompts{grid-template-columns:1fr 1fr}}
-  @media(max-width:680px){.prompts{grid-template-columns:1fr}.hdr nav{display:none}.card-h,.card-c{padding-left:16px;padding-right:16px}.card-f{padding-left:16px;padding-right:16px}.rc .meta{margin-left:0;width:100%}.container{padding:0 16px}}
+  @media(max-width:1000px){.layout{grid-template-columns:1fr}.side{position:static;max-height:none;overflow:visible}.prompts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:680px){.prompts{grid-template-columns:minmax(0,1fr)}.hdr nav{display:none}.card-h,.card-c{padding-left:16px;padding-right:16px}.card-f{padding-left:16px;padding-right:16px}.rc .meta{margin-left:0;width:100%}.container{padding:0 16px}}
   @media(prefers-reduced-motion:reduce){*{transition:none!important}html{scroll-behavior:auto}}
 </style>
 </head>
@@ -571,7 +576,7 @@ function renderReleases() {
   const cls = { eol: 'v-eol', security: 'v-security', active: 'v-active' };
   const label = { eol: 'end-of-life', security: 'security only', active: 'active' };
   $('#releases-box').innerHTML = `<div class="tbl"><table><tr><th>Branch</th><th>Latest</th><th>Status</th><th>EOL</th></tr>
-    ${rows.map((b) => `<tr><td class="mono">${esc(b.branch)}</td><td class="mono"><b>${esc(b.latest || '-')}</b></td><td><span class="badge ${cls[b.status] || 'v-no-signal'}">${esc(label[b.status] || b.status)}</span></td><td class="muted">${esc((b.eol || '-').slice(0, 7))}</td></tr>`).join('')}</table></div>
+    ${rows.map((b) => `<tr><td class="mono">${esc(b.branch)}</td><td class="mono"><b>${esc(b.latest || '-')}</b></td><td><span class="badge ${cls[b.status] || 'v-no-signal'}">${esc(label[b.status] || b.status)}</span></td><td class="muted">${esc((b.eol || '-').slice(0, 4))}</td></tr>`).join('')}</table></div>
     <p class="muted" style="margin-top:8px;font-size:12px">Latest patches ${esc(rows[0]?.latestDate || '')} · php.net${releases.sources.phpnet ? '' : ' (unavailable)'} · endoflife.date${releases.sources.endoflife ? '' : ' (unavailable)'} · cached 6 h</p>`;
 }
 
