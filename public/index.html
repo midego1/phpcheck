@@ -342,7 +342,7 @@ document.querySelectorAll('[data-ex]').forEach((c) => c.addEventListener('click'
   const ta = $('#targets'); const cur = ta.value.trim();
   ta.value = (cur ? cur + '\n' : '') + c.dataset.ex; ta.focus();
 }));
-const CF_TOKEN_URL = 'https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=' + encodeURIComponent('[{"key":"zone","type":"read"}]') + '&name=' + encodeURIComponent('PHP Check (zone read)');
+const CF_TOKEN_URL = 'https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=' + encodeURIComponent('[{"key":"zone","type":"read"}]') + '&accountId=*&zoneId=all&name=' + encodeURIComponent('PHP Check (zone read)');
 const IMPORT_HELP = {
   cloudflare: `<a href="${CF_TOKEN_URL}" target="_blank" rel="noopener">Create the token in Cloudflare</a> (opens the dashboard with "Zone · Zone · Read, all zones" prefilled; click Continue to summary, then Create Token and copy it). It is sent once to list your zones and is not stored.`,
   vercel: '<a href="https://vercel.com/account/tokens" target="_blank" rel="noopener">Create a token in Vercel</a>. For a team, add the team slug or ID below. It is sent once to list project domains and is not stored.',
