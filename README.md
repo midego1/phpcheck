@@ -80,10 +80,12 @@ claude mcp add --transport http phpcheck https://phpcheck.midego.net/mcp
   (URL and filename extractors only). Known CVEs with severity and the first fixed version.
 - **CMS**: WordPress core version (generator meta or `?ver=` on core assets), visible plugins with
   versions, theme; freshness from wordpress.org. Known vulnerabilities for core, plugins and theme
-  come from the Wordfence Intelligence feed (free, needs an API key): a daily cron downloads the
-  scanner feed once and stores a compact index in the `VULN_DB` KV namespace, so lookups cost nothing
-  per request. Setup: `npx wrangler secret put WORDFENCE_KEY`, then wait for the 03:17 UTC cron or
-  trigger it once with `npx wrangler dev --remote --test-scheduled` and `curl localhost:8787/__scheduled`.
+  come from the Wordfence Intelligence production feed (free, needs an API key). The workflow
+  `.github/workflows/vuln-feed.yml` downloads it once a day, `scripts/build-vuln-index.mjs` writes a
+  compact index to `public/vuln/` (one small JSON file per two-character slug prefix), and the
+  Worker is deployed with it as static assets, so a lookup reads one tiny file and the feed is
+  fetched once a day worldwide. Setup: GitHub secrets `WORDFENCE_KEY` and `CLOUDFLARE_API_TOKEN`
+  (Workers Scripts: Edit), then `gh workflow run vuln-feed`. Local: `WORDFENCE_KEY=… node scripts/build-vuln-index.mjs`.
   Drupal, Joomla and TYPO3 versions from the generator meta; Drupal checked against endoflife.date.
 - **Server software**: Apache httpd, nginx and OpenSSL versions from the Server header against
   endoflife.date; IIS, LiteSpeed, OpenResty and Caddy are reported without a lifecycle check.

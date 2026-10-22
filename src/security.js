@@ -291,8 +291,9 @@ export async function enrichCms(cms, env, ctx) {
       if (core) { out.advisories = core; feedUsed = true; }
     }
     if (cms.theme) {
+      // No theme version is visible in HTML, so this is the theme's vulnerability history, unconfirmed.
       const tv = await wfLookup(env, 'theme', cms.theme, null);
-      if (tv) { out.themeVulnerabilities = tv.filter((v) => !v.patched).slice(0, 5); feedUsed = true; }
+      if (tv) { out.themeVulnerabilities = tv.slice(0, 5); feedUsed = true; }
     }
     out.vulnFeed = feedUsed ? 'wordfence' : null;
   } else if (cms.name === 'Drupal' && cms.version) {
@@ -406,7 +407,7 @@ export async function enrichSecurity(result, body, setCookies, env, ctx) {
       const unconfirmed = vulnerable.filter((p) => !p.version);
       if (confirmedVuln.length) f('bad', `${confirmedVuln.length} plugin${confirmedVuln.length === 1 ? '' : 's'} with published vulnerabilities for the installed version: ${confirmedVuln.map((p) => `${p.slug} ${p.version} (${p.vulnerabilities[0].title}${p.vulnerabilities[0].fixedIn ? ', fixed in ' + p.vulnerabilities[0].fixedIn : ''})`).join('; ')}.`);
       if (unconfirmed.length) f('warn', `${unconfirmed.length} plugin${unconfirmed.length === 1 ? '' : 's'} with a vulnerability history but no visible version: ${unconfirmed.map((p) => p.slug).join(', ')}. Confirm the installed version from inside.`);
-      if (cms.themeVulnerabilities?.length) f('bad', `Theme ${cms.theme} has ${cms.themeVulnerabilities.length} unpatched vulnerabilit${cms.themeVulnerabilities.length === 1 ? 'y' : 'ies'}: ${cms.themeVulnerabilities[0].title}.`);
+      if (cms.themeVulnerabilities?.length) f('warn', `Theme ${cms.theme} has ${cms.themeVulnerabilities.length} published vulnerabilit${cms.themeVulnerabilities.length === 1 ? 'y' : 'ies'} in its history (${cms.themeVulnerabilities[0].title}${cms.themeVulnerabilities[0].fixedIn ? ', fixed in ' + cms.themeVulnerabilities[0].fixedIn : ''}); the theme version is not visible, confirm it from inside.`);
       if (outdated.length) f('warn', `${outdated.length} of ${cms.plugins.length} visible plugins outdated: ${outdated.slice(0, 5).map((p) => `${p.slug} ${p.version} → ${p.latest}`).join(', ')}${outdated.length > 5 ? ', …' : ''}.`);
       else if (cms.plugins.length) f('ok', `${cms.plugins.length} visible plugin${cms.plugins.length === 1 ? '' : 's'}, all current${unknown.length ? ` (${unknown.length} not in the wordpress.org directory, premium or custom)` : ''}.`);
       if (!cms.vulnFeed) f('info', 'Vulnerability feed not loaded yet; only version freshness is checked.');

@@ -10,7 +10,7 @@
  */
 
 import { enrichSecurity } from './security.js';
-import { refreshFeed, feedMeta } from './wordfence.js';
+import { feedMeta } from './wordfence.js';
 
 const UA = 'php-version-check/0.1 (passive header check; HEAD/GET of the homepage only)';
 const PHPNET_ACTIVE = 'https://www.php.net/releases/active.php';
@@ -52,10 +52,6 @@ function tooMany(name) {
 }
 
 export default {
-  // Daily: download the Wordfence feed once and store it in KV for every location.
-  async scheduled(event, env, ctx) {
-    ctx.waitUntil(refreshFeed(env).then((r) => console.log('wordfence feed refresh', JSON.stringify(r))));
-  },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
