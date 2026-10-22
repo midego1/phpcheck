@@ -582,7 +582,11 @@ function extractSignals(hops, body = '') {
     }
   }
   for (const [stack, evidence] of stacks) {
-    list.push(sig('stack', evidence.split(':')[0], evidence.includes(':') ? evidence.slice(evidence.indexOf(':') + 2) : evidence, evidence === 'HTML body' ? 'page body' : 'headers', `${stack} detected`));
+    const header = evidence.split(':')[0];
+    const value = evidence.includes(':') ? evidence.slice(evidence.indexOf(':') + 2) : evidence;
+    // Skip when the same header value is already explained by a more specific row (e.g. "server: cloudflare").
+    if (list.some((x) => x.header === header && x.value === value)) continue;
+    list.push(sig('stack', header, value, evidence === 'HTML body' ? 'page body' : 'headers', `${stack} detected`));
   }
   return { list, phpVersion, phpLikely, stacks: [...stacks.keys()] };
 }
@@ -600,7 +604,19 @@ function evaluate(result, releases) {
   const php = result.php;
   const supported = Object.values(branches).filter((b) => b.status !== 'eol' && b.latest).map((b) => `${b.branch} → ${b.latest}`);
 
-  if (result.http.status >= 400) {
+  const CF_ERRORS = {
+    520: 'Cloudflare 520: the origin returned an unknown or empty response.',
+    521: 'Cloudflare 521: the origin web server is down or refusing connections from Cloudflare.',
+    522: 'Cloudflare 522: connection to the origin timed out.',
+    523: 'Cloudflare 523: the origin is unreachable (routing or DNS problem).',
+    524: 'Cloudflare 524: the origin took too long to respond.',
+    525: 'Cloudflare 525: the TLS handshake with the origin failed.',
+    526: 'Cloudflare 526: the origin presents an invalid or expired TLS certificate while SSL mode is Full (strict). Fix the origin certificate (an Origin CA certificate works) or lower the SSL mode.',
+    530: 'Cloudflare 530: origin DNS error or Cloudflare Tunnel not running.',
+  };
+  if (CF_ERRORS[result.http.status] && /cloudflare/i.test(result.headers['server'] || '')) {
+    result.findings.push(f('bad', `${CF_ERRORS[result.http.status]} The headers below describe Cloudflare's error page, not the site itself.`));
+  } else if (result.http.status >= 400) {
     result.findings.push(f('warn', `The final response was HTTP ${result.http.status}; headers were still inspected but the page may not be the real site.`));
   }
 
@@ -617,7 +633,7 @@ function evaluate(result, releases) {
     result.verdict = 'no-signal';
     result.findings.push(f('info', 'No PHP marker found in response headers or the first 64 KB of HTML.'));
     const h = result.html;
-    if (h && !h.hasPhpLinks && h.forms === 0 && h.externalScripts <= 3) {
+    if (h && result.http.status < 500 && !h.hasPhpLinks && h.forms === 0 && h.externalScripts <= 3) {
       result.findings.push(f('info', `The HTML looks hand-written or statically generated: ${h.externalScripts} external script${h.externalScripts === 1 ? '' : 's'}, no forms, no framework, CMS or .php markers. Most likely plain HTML${hosts.length ? ' behind ' + hosts.join('/') : ''}, with nothing to patch.`));
     } else if (hosts.length) {
       result.findings.push(f('info', `Served via ${hosts.join('/')}, which hides the origin server. The app could be PHP with expose_php=Off, or something else entirely.`));

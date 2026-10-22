@@ -555,7 +555,7 @@ function card(r) {
 
 function extraBadges(r) {
   const b = [];
-  if (r.security) { const g = r.security.grade; b.push(`<span class="badge ${g === 'A' || g === 'B' ? 'v-latest' : g === 'C' ? 'v-partial' : 'v-outdated'}" title="Security headers">Headers ${g}</span>`); }
+  if (r.security) { const g = r.security.grade; const k = r.security.counts || {}; b.push(`<span class="badge ${g === 'A' || g === 'B' ? 'v-latest' : g === 'C' ? 'v-partial' : 'v-outdated'}" title="Security headers: ${r.security.score}/100, ${k.bad || 0} bad, ${k.warn || 0} warn, ${k.ok || 0} ok">Headers ${g}${k.bad ? ' · ' + k.bad + ' bad' : k.warn ? ' · ' + k.warn + ' warn' : ''}</span>`); }
   const vl = (r.libraries || []).filter((l) => l.vulnerabilities.length);
   if (vl.length) b.push(`<span class="badge v-outdated">${vl.length} vulnerable librar${vl.length === 1 ? 'y' : 'ies'}</span>`);
   if (r.cms) {
@@ -578,7 +578,9 @@ const ST = { ok: 'v-latest', info: 'v-no-signal', warn: 'v-partial', bad: 'v-out
 function detailsHtml(r) {
   const parts = [];
   if (r.security) {
-    parts.push(`<div><h4>Security headers and cookies · grade ${esc(r.security.grade)} (${r.security.score}/100)</h4><div class="tbl" style="margin-top:6px"><table><tr><th>Check</th><th>Status</th><th>Value</th><th>Advice</th></tr>${r.security.checks.map((c) => `<tr><td>${esc(c.name)}</td><td><span class="badge ${ST[c.status]}">${esc(c.status)}</span></td><td><code>${esc(c.value || '—')}</code></td><td>${esc(c.advice || '')}</td></tr>`).join('')}</table></div></div>`);
+    const k = r.security.counts || {};
+    const tally = [['bad', 'v-outdated'], ['warn', 'v-partial'], ['ok', 'v-latest'], ['info', 'v-no-signal']].filter(([s]) => k[s]).map(([s, cls]) => `<span class="badge ${cls}">${k[s]} ${s}</span>`).join(' ');
+    parts.push(`<div><h4 style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">Security headers and cookies · grade ${esc(r.security.grade)} <span class="muted" style="font-weight:400">${r.security.score}/100</span> ${tally}</h4><p class="muted" style="margin-top:4px;font-size:12.5px">Score starts at 100; each bad check costs 20, each warn 8. A ≥ 90, B ≥ 75, C ≥ 55, D ≥ 35.</p><div class="tbl" style="margin-top:6px"><table><tr><th>Check</th><th>Status</th><th>Value</th><th>Advice</th></tr>${r.security.checks.map((c) => `<tr><td>${esc(c.name)}</td><td><span class="badge ${ST[c.status]}">${esc(c.status)}</span></td><td><code>${esc(c.value || '—')}</code></td><td>${esc(c.advice || '')}</td></tr>`).join('')}</table></div></div>`);
   }
   if ((r.libraries || []).length) {
     parts.push(`<div><h4>JavaScript libraries</h4><div class="tbl" style="margin-top:6px"><table><tr><th>Library</th><th>Version</th><th>Known vulnerabilities</th><th>Loaded from</th></tr>${r.libraries.map((l) => `<tr><td>${esc(l.name)}</td><td class="mono">${esc(l.version)}</td><td>${l.vulnerabilities.length ? l.vulnerabilities.map((v) => `<div><span class="badge ${v.severity === 'critical' || v.severity === 'high' ? 'v-outdated' : v.severity === 'medium' ? 'v-partial' : 'v-no-signal'}">${esc(v.severity)}</span> ${esc(v.summary || '')} ${(v.cve || []).map((c) => `<a class="link" href="https://nvd.nist.gov/vuln/detail/${esc(c)}" target="_blank" rel="noopener">${esc(c)}</a>`).join(' ')}${v.fixedIn ? ` <span class="muted">fixed in ${esc(v.fixedIn)}</span>` : ''}</div>`).join('') : '<span class="muted">none known</span>'}</td><td class="mono" style="word-break:break-all">${esc(l.url)}</td></tr>`).join('')}</table></div></div>`);
