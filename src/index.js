@@ -801,16 +801,22 @@ async function importVercel(token, teamId) {
     if (page === IMPORT_MAX_PAGES) vercelTruncated = true;
     until = `&until=${next}`;
   }
-  // Domains added to the account/team but not attached to a project's production alias
-  const d = await apiGet(`https://api.vercel.com/v5/domains?limit=100${team}`, token);
-  if (d.data && Array.isArray(d.data.domains)) {
+  // Domains added to the account/team but not attached to a project's production alias (paginated too)
+  let dUntil = '';
+  for (let page = 1; page <= IMPORT_MAX_PAGES; page++) {
+    const d = await apiGet(`https://api.vercel.com/v5/domains?limit=100${team}${dUntil}`, token);
+    if (!d.data || !Array.isArray(d.data.domains)) break;
     for (const x of d.data.domains) {
       const host = String(x.name || '').toLowerCase();
       if (host && !seen.has(host)) seen.set(host, { domain: host, source: 'vercel', project: null, framework: null });
     }
+    const next = d.data.pagination?.next;
+    if (!next) break;
+    if (page === IMPORT_MAX_PAGES) vercelTruncated = true;
+    dUntil = `&until=${next}`;
   }
   const domains = [...seen.values()];
-  return { provider: 'vercel', count: domains.length, truncated: vercelTruncated, domains, ...(vercelTruncated ? { warning: `Only the first ${IMPORT_MAX_PAGES * 100} projects were listed; add the remaining domains by hand.` } : {}) };
+  return { provider: 'vercel', count: domains.length, truncated: vercelTruncated, domains, ...(vercelTruncated ? { warning: `Only the first ${IMPORT_MAX_PAGES * 100} projects or domains were listed; add the remaining domains by hand.` } : {}) };
 }
 
 // ---------------------------------------------------------------------------
