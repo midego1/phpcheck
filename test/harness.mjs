@@ -15,6 +15,9 @@ const canned = {
   'old.example':      { status: 200, headers: { 'x-powered-by': 'PHP/5.6.40' } },
   'nextjs.example':   { status: 200, headers: { server: 'Vercel', 'x-vercel-id': 'ams1::abc', 'x-powered-by': 'Next.js' }, body: '<html><head><script src="/_next/static/chunks/main.js"></script></head></html>' },
   'cdnonly.example':  { status: 200, headers: { server: 'cloudflare', 'cf-ray': 'abc' }, body: '<html><body>hi</body></html>' },
+  'wp.example':       { status: 200, headers: { server: 'nginx/1.18.0', 'x-powered-by': 'PHP/8.1.2-1ubuntu2.19', 'set-cookie': 'PHPSESSID=abc; path=/' },
+                        body: '<html><head><meta name="generator" content="WordPress 6.4.2"><script src="https://code.jquery.com/jquery-1.12.4.min.js"></script><link rel="stylesheet" href="/wp-content/plugins/contact-form-7/includes/css/styles.css?ver=5.0.0"><script src="/wp-includes/js/wp-embed.min.js?ver=6.4.2"></script><link href="/wp-content/themes/twentytwentyfour/style.css"></head><body></body></html>' },
+  'secure.example':   { status: 200, headers: { server: 'nginx', 'strict-transport-security': 'max-age=31536000; includeSubDomains', 'content-security-policy': "default-src 'self'; frame-ancestors 'none'", 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin', 'permissions-policy': 'camera=()', 'set-cookie': 'sid=1; Secure; HttpOnly; SameSite=Lax' }, body: '<html><body>ok</body></html>' },
 };
 globalThis.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : input.url;
@@ -29,13 +32,27 @@ const req = new Request('http://x/api/check', { method: 'POST', headers: { 'cont
 const res = await mod.default.fetch(req, { ASSETS: { fetch: () => new Response('') } }, { waitUntil() {} });
 const data = await res.json();
 if (data.error) { console.log('ERROR', data.error); process.exit(1); }
-const expect = { 'latest.example': 'latest', 'outdated.example': 'outdated', 'eol.example': 'eol', 'distro.example': 'distro', 'partial.example': 'partial', 'cookie.example': 'php-no-version', 'redirect.example': 'outdated', 'headonly.example': 'latest', 'body.example': 'php-no-version', 'old.example': 'eol', 'nextjs.example': 'not-php', 'cdnonly.example': 'no-signal' };
+const expect = { 'latest.example': 'latest', 'outdated.example': 'outdated', 'eol.example': 'eol', 'distro.example': 'distro', 'partial.example': 'partial', 'cookie.example': 'php-no-version', 'redirect.example': 'outdated', 'headonly.example': 'latest', 'body.example': 'php-no-version', 'old.example': 'eol', 'nextjs.example': 'not-php', 'cdnonly.example': 'no-signal', 'wp.example': 'eol', 'secure.example': 'no-signal' };
 let fail = 0;
 for (const r of data.results) {
   const ok = r.verdict === expect[r.input];
   if (!ok) fail++;
   console.log((ok ? 'PASS' : 'FAIL'), r.input.padEnd(20), r.verdict.padEnd(16), r.php.version || '-', '| behind:', r.comparison?.patchesBehind ?? '-', '| adv:', r.advisories.map(a => a.id).join(',') || '-', '|', r.findings[0]?.text.slice(0, 90));
 }
+// Security enrichment assertions
+const wp = data.results.find(r => r.input === 'wp.example');
+const sec = data.results.find(r => r.input === 'secure.example');
+const checks = [
+  ['wp: headers grade is D or F', ['D', 'F'].includes(wp.security?.grade)],
+  ['wp: PHPSESSID cookie flagged', wp.security?.checks.some(c => c.id === 'cookie:PHPSESSID' && c.status === 'bad')],
+  ['wp: jquery 1.12.4 found with vulns', wp.libraries?.some(l => l.name === 'jquery' && l.version === '1.12.4' && l.vulnerabilities.length >= 2)],
+  ['wp: WordPress 6.4.2 outdated', wp.cms?.name === 'WordPress' && wp.cms.version === '6.4.2' && wp.cms.status === 'outdated'],
+  ['wp: contact-form-7 5.0.0 outdated', wp.cms?.plugins.some(p => p.slug === 'contact-form-7' && p.status === 'outdated' && p.latest)],
+  ['wp: nginx 1.18.0 eol', wp.server?.some(s => s.name === 'nginx' && s.status === 'eol')],
+  ['secure: headers grade A', sec.security?.grade === 'A'],
+  ['secure: no vulnerable libs', (sec.libraries || []).length === 0],
+];
+for (const [name, ok] of checks) { if (!ok) fail++; console.log(ok ? 'PASS' : 'FAIL', name); }
 const o = data.results.find(r => r.input === 'outdated.example');
 console.log('\n--- agent prompt (outdated.example), first 40 lines ---');
 console.log(o.agentPrompt.split('\n').slice(0, 40).join('\n'));
