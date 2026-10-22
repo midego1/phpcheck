@@ -1,0 +1,31 @@
+name = "php-version-check"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+
+routes = [
+  { pattern = "phpcheck.midego.net", custom_domain = true }
+]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[observability]
+enabled = true
+
+# Rate limits, keyed by client IP (Workers Rate Limiting binding). Period is seconds.
+[[ratelimits]]
+name = "RL_CHECK"
+namespace_id = "1001"
+simple = { limit = 30, period = 60 }
+
+[[ratelimits]]
+name = "RL_IMPORT"
+namespace_id = "1002"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "RL_MCP"
+namespace_id = "1003"
+simple = { limit = 60, period = 60 }

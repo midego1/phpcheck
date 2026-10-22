@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PHP Check</title>
+<meta name="description" content="Reads the PHP version a website exposes, compares it with the current releases on php.net, and writes the check-and-fix prompt for your agent. Bulk, up to 100 domains.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23111'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='16' font-weight='700' fill='white' text-anchor='middle'%3E%3C?%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script defer src="https://umami.midego.net/script.js" data-website-id="a42dadfd-9fad-4717-b258-ebf9411305be"></script>
+<style>
+  :root{
+    color-scheme:light dark;
+    --bg:#fff;--panel:#f3f4f4;--text:#15171a;--text2:#4a5058;--muted:#767d87;--line:#dcdfe3;--line2:#c6cacf;
+    --accent:#0e6b8c;--ink:#15171a;--ink-fg:#fff;
+    --ok:#1b7f3b;--warn:#9a5b00;--bad:#b3261e;--info:#1d5fa6;--gray:#5d646d;
+    --code:#eef0f1;--selection:#d7ecf3;
+    --sans:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --bg:#131517;--panel:#1b1e22;--text:#e6e7e9;--text2:#b4b9c0;--muted:#8a919b;--line:#2b3036;--line2:#3b4148;
+    --accent:#5fb3d0;--ink:#e6e7e9;--ink-fg:#131517;
+    --ok:#5fcf7d;--warn:#e0a84a;--bad:#f07a73;--info:#7fb2ec;--gray:#9aa1aa;
+    --code:#0f1113;--selection:#24414c;
+  }}
+  *{box-sizing:border-box}
+  ::selection{background:var(--selection)}
+  html{scroll-behavior:smooth}
+  body{margin:0;font:16px/1.5 var(--sans);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+  a{color:var(--accent);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
+  a:visited{color:color-mix(in srgb,var(--accent) 70%,var(--muted))}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  code,pre,.mono{font-family:var(--mono)}
+  code{font-size:.9em;background:var(--code);padding:1px 4px;border-radius:3px}
+  h1,h2,h3{text-wrap:balance;font-weight:600;letter-spacing:-.01em}
+  h2{font-size:22px;margin:0 0 6px}
+  h3{font-size:16px;margin:0 0 4px}
+  p{margin:0 0 10px}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+
+  header.top{border-bottom:1px solid var(--line)}
+  header.top .wrap{display:flex;align-items:center;gap:16px;height:52px}
+  .brand{font-weight:600;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:8px}
+  .brand code{background:var(--ink);color:var(--ink-fg);padding:1px 5px;border-radius:3px;font-size:13px}
+  header.top nav{margin-left:auto;display:flex;gap:18px;font-size:14px}
+  header.top nav a{color:var(--text2);text-decoration:none}
+  header.top nav a:hover{color:var(--text);text-decoration:underline}
+
+  .intro{padding:40px 0 20px;max-width:720px}
+  .intro h1{font-size:30px;line-height:1.2;margin:0 0 10px}
+  .intro p{color:var(--text2);font-size:17px;margin:0}
+
+  .work{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px}
+  label.lbl{display:block;font-size:13px;font-weight:500;color:var(--text2);margin-bottom:6px}
+  textarea{width:100%;min-height:128px;padding:10px 12px;border:1px solid var(--line2);border-radius:4px;background:var(--bg);color:var(--text);font:14px/1.5 var(--mono);resize:vertical}
+  textarea:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--line2);border-radius:4px;background:var(--bg);color:var(--text);cursor:pointer;font:500 14px var(--sans);min-height:40px}
+  .btn:hover{border-color:var(--text2)}
+  .btn:active{transform:translateY(1px)}
+  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+  .btn.primary{background:var(--ink);border-color:var(--ink);color:var(--ink-fg);padding:9px 18px}
+  .btn.primary:hover{opacity:.9}
+  .btn.sm{padding:5px 10px;min-height:32px;font-size:13px}
+  .btn.link{border:0;background:none;color:var(--accent);text-decoration:underline;text-underline-offset:3px;padding:5px 2px}
+  .btn img{width:15px;height:15px;display:block}
+  .examples{font-size:13px;color:var(--muted);display:flex;gap:4px 10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .chip{background:none;border:0;padding:0;font:13px var(--mono);color:var(--accent);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+  .status{font-size:13px;color:var(--muted)}
+  .import{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+  .import-row{display:flex;gap:8px 10px;flex-wrap:wrap;align-items:end}
+  .import-row .lbl{margin:0 0 4px;width:100%}
+  .import input{flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--line2);border-radius:4px;background:var(--bg);color:var(--text);font:14px var(--mono);min-height:36px}
+  .import input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+  .import p{margin:8px 0 0}
+  progress{width:100%;height:4px;border:0;margin-top:12px;appearance:none;background:var(--line)}
+  progress::-webkit-progress-bar{background:var(--line)}
+  progress::-webkit-progress-value{background:var(--accent);transition:width .25s ease-out}
+
+  .summary{margin:28px 0 8px;font-size:15px;display:flex;gap:4px 14px;flex-wrap:wrap;align-items:baseline}
+  .summary b{font-weight:600}
+  .summary button{background:none;border:0;padding:0;font:inherit;color:var(--text2);cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line2)}
+  .summary button:hover{color:var(--text)}
+  .summary button.active{color:var(--text);text-decoration-color:var(--text)}
+  .summary button i{display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--c);margin-right:6px;vertical-align:0}
+
+  .results{border-top:1px solid var(--line)}
+  .row{border-bottom:1px solid var(--line);padding:14px 0}
+  .row .head{display:grid;grid-template-columns:minmax(160px,1.4fr) auto minmax(0,2fr) auto;gap:8px 18px;align-items:baseline}
+  .row .host{font-weight:600;font-size:16px;word-break:break-all}
+  .row .ver{font-family:var(--mono);font-size:14px;color:var(--text2)}
+  .row .ver b{color:var(--text);font-weight:500}
+  .row .meta{font-family:var(--mono);font-size:12.5px;color:var(--muted);text-align:right;white-space:nowrap}
+  .verdict{font-size:13px;font-weight:500;color:var(--c);white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
+  .verdict::before{content:"";width:9px;height:9px;border-radius:2px;background:var(--c);flex:none}
+  .v-latest{--c:var(--ok)}.v-outdated,.v-eol{--c:var(--bad)}.v-distro,.v-partial{--c:var(--warn)}
+  .v-php-no-version{--c:var(--info)}.v-no-signal,.v-unreachable,.v-invalid{--c:var(--gray)}
+  .adv{font-size:13px;color:var(--bad);font-weight:500}
+  ul.findings{margin:8px 0 0;padding:0;list-style:none;color:var(--text2);font-size:15px}
+  ul.findings li{padding:2px 0 2px 16px;position:relative}
+  ul.findings li::before{content:"";position:absolute;left:0;top:11px;width:7px;height:7px;border-radius:2px;background:var(--muted)}
+  li.ok::before{background:var(--ok)}li.warn::before{background:var(--warn)}li.bad::before{background:var(--bad)}li.info::before{background:var(--info)}
+  details{margin-top:8px}
+  summary{cursor:pointer;color:var(--accent);font-size:14px;text-decoration:underline;text-underline-offset:3px;width:max-content}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin-top:8px}
+  th,td{text-align:left;padding:7px 10px 7px 0;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:500;font-size:13px}
+  pre{background:var(--code);padding:12px;border-radius:4px;overflow:auto;white-space:pre-wrap;word-break:break-word;max-height:420px;font-size:13px;line-height:1.5;margin:8px 0 0}
+  .actions{display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .ai{display:inline-flex;gap:2px;align-items:center;flex-wrap:wrap}
+  .ai span{font-size:13px;color:var(--muted);margin-right:6px}
+  .ai button{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid transparent;border-radius:4px;background:none;cursor:pointer;font:13px var(--sans);color:var(--text2);min-height:32px}
+  .ai button:hover{border-color:var(--line2);color:var(--text)}
+  .ai img{width:15px;height:15px;display:block}
+  .ai .mono-icon{display:block;width:15px;height:15px;background:var(--text);-webkit-mask:var(--icon) center/contain no-repeat;mask:var(--icon) center/contain no-repeat}
+
+  section{margin-top:64px}
+  section .lead{color:var(--text2);max-width:680px;margin-bottom:18px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:28px 40px}
+  .cols dl{margin:0}
+  dt{font-weight:600;margin-top:14px}dt:first-child{margin-top:0}
+  dd{margin:2px 0 0;color:var(--text2)}
+  .note{border-left:2px solid var(--warn);padding:2px 0 2px 14px;margin:20px 0 0;max-width:680px;color:var(--text2)}
+  .note b{color:var(--text)}
+  .prompts{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
+  .prompt p{color:var(--text2);font-size:15px}
+  .prompt pre{max-height:240px}
+  .legend dl{display:grid;grid-template-columns:max-content 1fr;gap:8px 16px;margin:0}
+  .legend dt{margin:0}.legend dd{margin:0;color:var(--text2)}
+  .releases-wrap{overflow-x:auto}
+  footer{margin:72px 0 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-wrap:wrap;gap:6px 24px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--ink-fg);padding:8px 14px;border-radius:4px;font-size:14px;opacity:0;transition:opacity .15s ease-out;pointer-events:none;z-index:50}
+  .toast.show{opacity:1}
+  @media(max-width:760px){.cols,.prompts{grid-template-columns:1fr}.row .head{grid-template-columns:1fr auto}.row .meta{text-align:left;grid-column:1/-1}.row .ver{grid-column:1/-1}header.top nav{display:none}.intro{padding-top:28px}.intro h1{font-size:26px}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="#"><code>&lt;?</code> PHP Check</a>
+  <nav><a href="#how">How it works</a><a href="#releases">Releases</a><a href="#prompts">Agent prompts</a><a href="#api">API &amp; MCP</a><a href="https://github.com/midego1/phpcheck" target="_blank" rel="noopener">GitHub</a></nav>
+</div></header>
+
+<main class="wrap">
+  <div class="intro">
+    <h1>Check the PHP patch level of any domain</h1>
+    <p>Reads the version a site exposes, compares it with the releases on php.net, and writes the check-and-fix prompt for your agent. One request per domain, up to 100 at a time.</p>
+  </div>
+
+  <div class="work">
+    <label class="lbl" for="targets">Domains, one per line</label>
+    <textarea id="targets" placeholder="example.com&#10;https://shop.example.org/&#10;wordpress.org"></textarea>
+    <div class="toolbar">
+      <button class="btn primary" id="run" data-umami-event="check">Check domains</button>
+      <button class="btn" id="clear">Clear</button>
+      <span class="status" id="status"></span>
+      <span style="flex:1"></span>
+      <button class="btn sm" id="csv" disabled data-umami-event="export-csv">Download CSV</button>
+      <button class="btn sm" id="jsonx" disabled data-umami-event="export-json">Download JSON</button>
+    </div>
+    <div class="examples">Examples: <button class="chip" data-ex="wordpress.org">wordpress.org</button><button class="chip" data-ex="php.net">php.net</button><button class="chip" data-ex="laravel.com">laravel.com</button><button class="chip" data-ex="drupal.org">drupal.org</button><button class="chip" data-ex="github.com">github.com</button>
+      <span style="flex:1"></span>
+      <span>Import all domains from</span> <button class="chip" data-import="cloudflare">Cloudflare</button> <button class="chip" data-import="vercel">Vercel</button></div>
+    <form id="import" class="import" hidden autocomplete="off">
+      <div class="import-row">
+        <label class="lbl" for="imp-token" id="imp-label">Cloudflare API token</label>
+        <input id="imp-token" type="password" autocomplete="off" spellcheck="false" placeholder="paste token">
+        <label class="lbl" for="imp-team" id="imp-team-label" hidden>Team slug or ID (optional)</label>
+        <input id="imp-team" type="text" autocomplete="off" spellcheck="false" placeholder="my-team" hidden>
+        <button class="btn sm" type="submit" id="imp-go">Import domains</button>
+        <button class="btn sm link" type="button" id="imp-cancel">Cancel</button>
+      </div>
+      <p class="status" id="imp-help"></p>
+    </form>
+    <progress id="prog" value="0" max="1" hidden></progress>
+  </div>
+
+  <div id="stats" class="summary" hidden></div>
+  <div id="results" class="results" hidden></div>
+
+  <section id="how">
+    <h2>How it works</h2>
+    <p class="lead">One passive look at the homepage. Nothing is crawled, probed or exploited; the tool reports what it saw and says so when it saw nothing.</p>
+    <div class="cols">
+      <dl>
+        <dt>1. One request</dt><dd>A HEAD request to the homepage, then a GET when HEAD is refused or shows nothing. Up to five redirects are followed, with an identifying User-Agent.</dd>
+        <dt>2. Read the headers</dt><dd>PHP announces itself as <code>X-Powered-By: PHP/8.4.26</code>, sometimes inside <code>Server</code>. PHPSESSID cookies, WordPress, Drupal and Laravel markers and links to <code>.php</code> files separate "PHP, version hidden" from "no PHP at all".</dd>
+      </dl>
+      <dl>
+        <dt>3. Compare with php.net</dt><dd>Release data is fetched live from php.net and endoflife.date: latest patch per branch, active or security-only support, end-of-life dates, and the known critical advisories.</dd>
+        <dt>4. Hand it to an agent</dt><dd>Each result comes with a prompt that lists the evidence, the current releases and the check, confirm, fix and verify steps. Open it in Claude, ChatGPT, Grok, Gemini or Perplexity.</dd>
+      </dl>
+    </div>
+    <p class="note"><b>Most sites hide the version on purpose.</b> PHP only sends <code>X-Powered-By</code> when <code>expose_php = On</code>. Well-configured hosts, Docker images, managed platforms and CDNs turn it off or strip it, so most results read "PHP, version hidden" or "no signal". That is not a failed check: the patch level can then only be confirmed from inside the server, which is what the agent prompt walks through. When a version is exposed it is reliable, and a small finding in itself.</p>
+  </section>
+
+  <section id="releases">
+    <h2>Current PHP releases</h2>
+    <p class="lead">Supported branches, fetched from php.net and endoflife.date and cached for six hours. Everything below 8.2 is end-of-life.</p>
+    <div class="releases-wrap" id="releases-box"><span class="status">Loading from php.net…</span></div>
+  </section>
+
+  <section id="prompts">
+    <h2>Prompts for agents</h2>
+    <p class="lead">Every result has its own prompt with the observations filled in. These are the generic templates behind it. Replace <code>{{domain}}</code>, or open one directly in your assistant.</p>
+    <div class="prompts" id="prompt-grid"></div>
+  </section>
+
+  <section id="legend" class="legend">
+    <h2>What the verdicts mean</h2>
+    <dl>
+      <dt><span class="verdict v-latest">latest</span></dt><dd>Exposed version equals the newest patch on its branch.</dd>
+      <dt><span class="verdict v-outdated">outdated</span></dt><dd>Same branch, older patch. When the newest patch is a security release, treat as urgent.</dd>
+      <dt><span class="verdict v-eol">EOL</span></dt><dd>Branch no longer receives fixes at all.</dd>
+      <dt><span class="verdict v-distro">distro build</span></dt><dd>Debian, Ubuntu or RHEL package. The number lags upstream on purpose; backported fixes may be present. Needs an inside check.</dd>
+      <dt><span class="verdict v-partial">partial</span></dt><dd>Only "PHP/8.x" exposed, no patch level.</dd>
+      <dt><span class="verdict v-php-no-version">PHP, version hidden</span></dt><dd>PHP markers present but no version. Good hygiene; only an inside check gives the patch level.</dd>
+      <dt><span class="verdict v-no-signal">no signal</span></dt><dd>Nothing PHP-related observed. Hidden, not PHP, or stripped by a CDN.</dd>
+      <dt><span class="verdict v-unreachable">unreachable</span></dt><dd>No HTTP response over https or http.</dd>
+    </dl>
+  </section>
+
+  <section id="api">
+    <h2>API</h2>
+    <p class="lead">Same engine, JSON out. No key needed, 20 targets per request.</p>
+    <pre>GET  https://phpcheck.midego.net/api/releases
+POST https://phpcheck.midego.net/api/import    {"provider": "cloudflare" | "vercel", "token": "…", "teamId": "optional"}
+GET  https://phpcheck.midego.net/api/check?target=example.com&amp;target=example.org
+POST https://phpcheck.midego.net/api/check   {"targets": ["example.com", "example.org"]}</pre>
+    <h3 style="margin-top:24px">MCP server</h3>
+    <p class="lead">The same two operations as MCP tools (<code>check_php_version</code>, <code>php_releases</code>) over Streamable HTTP, so an agent can call them directly.</p>
+    <pre>Endpoint      https://phpcheck.midego.net/mcp
+
+Claude Code   claude mcp add --transport http phpcheck https://phpcheck.midego.net/mcp
+Cursor / others
+{ "mcpServers": { "phpcheck": { "url": "https://phpcheck.midego.net/mcp" } } }</pre>
+  </section>
+
+  <footer>
+    <span>Only the homepage is requested, with an identifying User-Agent. Private and local hosts are refused.</span>
+    <span>Sources: <a href="https://www.php.net/releases/active.php" target="_blank" rel="noopener">php.net</a>, <a href="https://endoflife.date/php" target="_blank" rel="noopener">endoflife.date</a></span>
+    <span>Rate limits per IP: 30 checks, 10 imports and 60 MCP calls per minute.</span>
+    <span>Open source: <a href="https://github.com/midego1/phpcheck" target="_blank" rel="noopener">github.com/midego1/phpcheck</a> (MIT)</span>
+    <span>By <a href="https://x.com/midego1" target="_blank" rel="noopener">@midego1</a> · <a href="https://midego.net" target="_blank" rel="noopener">midego.net</a></span>
+  </footer>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const CHUNK = 10, PARALLEL = 3, MAX = 300;
+let results = [], releases = null, filter = null;
+
+const ICONS = 'https://unpkg.com/@lobehub/icons-static-svg@1.68.0/icons/';
+const AI = [
+  { id: 'claude',     name: 'Claude',     icon: ICONS + 'claude-color.svg',     url: (p) => 'https://claude.ai/new?q=' + encodeURIComponent(p) },
+  { id: 'chatgpt',   name: 'ChatGPT',    icon: ICONS + 'openai.svg', mono: true, url: (p) => 'https://chatgpt.com/?q=' + encodeURIComponent(p) },
+  { id: 'grok',       name: 'Grok',       icon: ICONS + 'grok.svg',   mono: true, url: (p) => 'https://grok.com/?q=' + encodeURIComponent(p) },
+  { id: 'gemini',     name: 'Gemini',     icon: ICONS + 'gemini-color.svg',     url: (p) => 'https://gemini.google.com/app?q=' + encodeURIComponent(p) },
+  { id: 'perplexity', name: 'Perplexity', icon: ICONS + 'perplexity-color.svg', url: (p) => 'https://www.perplexity.ai/search?q=' + encodeURIComponent(p) },
+];
+
+const PROMPTS = [
+  { key: 'check', title: 'Check', blurb: 'Find the PHP version that really serves web requests, per vhost.', text: `You are a careful sysadmin agent working on the server behind {{domain}}.
+Find the PHP version that actually serves web requests (not just the CLI):
+1. php -v ; php-fpm -v (or php-fpm8.x -v) ; ls /etc/php/ ; which php
+2. Web SAPI: place a temporary file <?php echo PHP_VERSION; ?> in the docroot, curl it, delete it. On Docker: docker exec <container> php -v and note the image tag.
+3. Shared hosting (cPanel/Plesk/DirectAdmin): read the per-domain PHP selector; it can differ from the server default.
+4. List every vhost/container on the host and repeat for each.
+Report: host, SAPI, exact version string, package source (distro / Surý / Remi / Docker image / panel).
+Do not enable expose_php for this.` },
+  { key: 'confirm', title: 'Confirm', blurb: 'Compare with php.net and state exactly how far behind it is.', text: `Compare the PHP version you found on {{domain}} with the current releases from https://www.php.net/releases/active.php and the support dates from https://endoflife.date/php.
+Report in this exact shape:
+- detected version and branch
+- latest patch on that branch and its release date
+- patches behind (number)
+- branch status: active / security-only (until when) / EOL (since when)
+- advisories that apply (CVE ids), e.g. the 21 Oct 2026 release fixing CVE-2026-109618 and CVE-2026-109619 (fixed in 8.5.12 / 8.4.27 / 8.3.36 / 8.2.35)
+If the version has a distro suffix (e.g. 8.1.2-1ubuntu2.19), read the package changelog (apt changelog php8.1-fpm | head -80 or rpm -q --changelog php-fpm | head -40) and list which CVEs are already included instead of trusting the number.` },
+  { key: 'fix', title: 'Fix', blurb: 'Patch or migrate safely, verify, then hide the header.', text: `Bring PHP on {{domain}} to the latest patch on a supported branch, safely:
+- Snapshot/backup first. Branch upgrades go to staging first; patch releases on the same branch are drop-in.
+- Debian/Ubuntu (Surý repo): apt update && apt install --only-upgrade 'php8.x*' ; RHEL family (Remi): dnf update 'php*'
+- Docker: bump the base image to php:<latest>-fpm or -apache, rebuild, redeploy.
+- cPanel/Plesk: update through EasyApache / Plesk Installer, re-select the version per domain.
+- Managed hosts: switch the version in the dashboard; open a ticket if their patch level lags.
+- Branch upgrade (EOL): run phpcs with PHPCompatibility (--runtime-set testVersion <target>) or Rector first; check composer why-not php <target>.
+Then restart php-fpm / the web server, run php -v and the web SAPI test again, run the app's smoke tests, check the error log, set expose_php = Off, and confirm with: curl -sI https://{{domain}} | grep -iE 'x-powered-by|server'
+Report: before, after, branch status, advisories closed, header exposure, anything left open.` },
+];
+
+function aiBar(getText, label) {
+  const bar = document.createElement('div'); bar.className = 'ai';
+  bar.innerHTML = `<span>Open in</span>` + AI.map((a) => `<button data-ai="${a.id}">${a.mono ? `<i class="mono-icon" style="--icon:url('${a.icon}')"></i>` : `<img src="${a.icon}" alt="" loading="lazy">`}${a.name}</button>`).join('');
+  bar.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    const a = AI.find((x) => x.id === b.dataset.ai);
+    track('open-in-' + a.id, { prompt: label });
+    window.open(a.url(getText()), '_blank', 'noopener');
+  }));
+  return bar;
+}
+
+function track(name, data) { try { if (window.umami) umami.track(name, data || {}); } catch {} }
+
+(function renderPrompts() {
+  const grid = $('#prompt-grid');
+  PROMPTS.forEach((p, i) => {
+    const el = document.createElement('div'); el.className = 'prompt';
+    el.innerHTML = `<h3>${i + 1}. ${p.title}</h3><p>${p.blurb}</p><pre>${esc(p.text)}</pre><div class="actions"></div>`;
+    const actions = el.querySelector('.actions');
+    const copy = document.createElement('button'); copy.className = 'btn sm'; copy.textContent = 'Copy';
+    copy.onclick = () => { copyText(p.text); track('copy-prompt', { prompt: p.key }); };
+    actions.appendChild(copy);
+    actions.appendChild(aiBar(() => p.text, p.key));
+    grid.appendChild(el);
+  });
+})();
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('Copied to clipboard'); } catch { prompt('Copy:', text); }
+}
+let toastT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1600); }
+
+function parseTargets() {
+  const seen = new Set();
+  return $('#targets').value.split(/[\n,;]+/).map((s) => s.trim()).filter((s) => s && !seen.has(s.toLowerCase()) && seen.add(s.toLowerCase()));
+}
+document.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => {
+  const ta = $('#targets'); const cur = ta.value.trim();
+  ta.value = (cur ? cur + '\n' : '') + c.dataset.ex; ta.focus();
+}));
+const IMPORT_HELP = {
+  cloudflare: 'Create a token at dash.cloudflare.com → My Profile → API Tokens with one permission: Zone · Zone · Read, all zones. It is sent once to list your zones and is not stored.',
+  vercel: 'Create a token at vercel.com/account/tokens. For a team, add the team slug or ID. It is sent once to list project domains and is not stored.',
+};
+let importProvider = null;
+document.querySelectorAll('[data-import]').forEach((b) => b.addEventListener('click', () => {
+  importProvider = b.dataset.import;
+  const f = $('#import'); f.hidden = false;
+  $('#imp-label').textContent = importProvider === 'cloudflare' ? 'Cloudflare API token' : 'Vercel token';
+  $('#imp-team').hidden = $('#imp-team-label').hidden = importProvider !== 'vercel';
+  $('#imp-help').textContent = IMPORT_HELP[importProvider];
+  $('#imp-token').value = ''; $('#imp-token').focus();
+}));
+$('#imp-cancel').addEventListener('click', () => { $('#import').hidden = true; $('#imp-token').value = ''; });
+$('#import').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const token = $('#imp-token').value.trim();
+  if (!token) { $('#imp-token').focus(); return; }
+  $('#imp-go').disabled = true; $('#imp-help').textContent = 'Listing domains…';
+  try {
+    const r = await fetch('/api/import', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ provider: importProvider, token, teamId: $('#imp-team').value.trim() }) });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    const ta = $('#targets');
+    const existing = new Set(parseTargets().map((s) => s.toLowerCase()));
+    const fresh = data.domains.map((d) => d.domain).filter((d) => !existing.has(d.toLowerCase()));
+    ta.value = [...parseTargets(), ...fresh].join('\n');
+    $('#imp-token').value = '';
+    $('#import').hidden = true;
+    const total = parseTargets().length;
+    toast(`${fresh.length} domain${fresh.length === 1 ? '' : 's'} imported from ${importProvider === 'cloudflare' ? 'Cloudflare' : 'Vercel'}`);
+    $('#status').textContent = `${data.count} found, ${fresh.length} new, ${total} in the list` + (total > MAX ? ` (the first ${MAX} will be checked)` : '');
+    track('import', { provider: importProvider, count: data.count });
+  } catch (err) {
+    $('#imp-help').textContent = err.message;
+  } finally {
+    $('#imp-go').disabled = false;
+  }
+});
+
+$('#clear').addEventListener('click', () => { $('#targets').value = ''; results = []; render(); $('#status').textContent = ''; });
+
+$('#run').addEventListener('click', async () => {
+  let targets = parseTargets();
+  if (!targets.length) { $('#targets').focus(); return; }
+  if (targets.length > MAX) { targets = targets.slice(0, MAX); toast(`Capped at ${MAX} targets`); }
+  track('check-run', { count: targets.length });
+  results = []; filter = null; render();
+  $('#run').disabled = true;
+  $('#prog').hidden = false; $('#prog').value = 0; $('#prog').max = targets.length;
+  const chunks = [];
+  for (let i = 0; i < targets.length; i += CHUNK) chunks.push(targets.slice(i, i + CHUNK));
+  let done = 0, ci = 0;
+  const t0 = Date.now();
+  async function worker() {
+    while (ci < chunks.length) {
+      const chunk = chunks[ci++];
+      try {
+        const r = await fetch('/api/check', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ targets: chunk }) });
+        const data = await r.json();
+        if (data.error) throw new Error(data.error);
+        if (!releases) { releases = data.releases; renderReleases(); }
+        for (const res of data.results) { res.checkedAt = data.checkedAt; results.push(res); }
+      } catch (e) {
+        for (const t of chunk) results.push({ input: t, host: t, verdict: 'unreachable', php: { detected: false }, http: { attempts: [], redirects: [] }, headers: {}, signals: [], findings: [{ level: 'bad', text: 'Request to the checker failed: ' + e.message }], advisories: [] });
+      }
+      done += chunk.length; $('#prog').value = done;
+      $('#status').textContent = `${done}/${targets.length} checked`;
+      render();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(PARALLEL, chunks.length) }, worker));
+  $('#status').textContent = `${targets.length} checked in ${((Date.now() - t0) / 1000).toFixed(1)} s`;
+  $('#prog').hidden = true; $('#run').disabled = false;
+  const counts = {}; for (const r of results) counts[r.verdict] = (counts[r.verdict] || 0) + 1;
+  track('check-done', counts);
+});
+
+const LABEL = { latest: 'latest', outdated: 'outdated', eol: 'EOL', distro: 'distro build', partial: 'partial', 'php-no-version': 'PHP, version hidden', 'no-signal': 'no signal', unreachable: 'unreachable', invalid: 'invalid' };
+const ORDER = ['eol', 'outdated', 'distro', 'partial', 'latest', 'php-no-version', 'no-signal', 'unreachable', 'invalid'];
+const ICON = { latest: '✓', outdated: '↑', eol: '✕', distro: '◐', partial: '?', 'php-no-version': '●', 'no-signal': '○', unreachable: '—', invalid: '!' };
+
+function render() {
+  const has = results.length > 0;
+  $('#csv').disabled = $('#jsonx').disabled = !has;
+  const st = $('#stats'); st.hidden = !has; st.innerHTML = '';
+  $('#results').hidden = !has;
+  if (has) {
+    const counts = {};
+    for (const r of results) counts[r.verdict] = (counts[r.verdict] || 0) + 1;
+    const all = document.createElement('button'); all.className = filter === null ? 'active' : '';
+    all.innerHTML = `<b>${results.length}</b> checked`;
+    all.onclick = () => { filter = null; render(); }; st.appendChild(all);
+    for (const v of ORDER) {
+      if (!counts[v]) continue;
+      const b = document.createElement('button'); b.className = 'v-' + v + (filter === v ? ' active' : '');
+      b.innerHTML = `<i></i><b>${counts[v]}</b> ${LABEL[v]}`;
+      b.onclick = () => { filter = filter === v ? null : v; render(); }; st.appendChild(b);
+    }
+  }
+  const box = $('#results'); box.innerHTML = '';
+  const shown = results.filter((r) => !filter || r.verdict === filter).sort((a, b) => ORDER.indexOf(a.verdict) - ORDER.indexOf(b.verdict));
+  for (const r of shown) box.appendChild(card(r));
+}
+
+function card(r) {
+  const el = document.createElement('div'); el.className = 'row v-' + r.verdict;
+  const php = r.php || {}; const c = r.comparison;
+  let ver = '';
+  if (php.version) ver = `<b>PHP ${esc(php.version)}</b>` + (c && c.latestOnBranch ? (c.latestOnBranch === php.version ? ' · latest on ' + esc(php.branch) : ` · latest is ${esc(c.latestOnBranch)}`) : '');
+  else if (php.detected) ver = '';
+  const adv = (r.advisories || []).length ? ` <span class="adv">${r.advisories.length} advisor${r.advisories.length === 1 ? 'y' : 'ies'} apply</span>` : '';
+  const statusTxt = r.http && r.http.status != null ? `HTTP ${r.http.status}` : 'no response';
+  el.innerHTML = `
+    <div class="head">
+      <span class="host">${esc(r.host || r.input)}</span>
+      <span class="verdict v-${r.verdict}">${LABEL[r.verdict] || esc(r.verdict)}</span>
+      <span class="ver">${ver}${adv}</span>
+      <span class="meta">${statusTxt}${r.ms ? ' · ' + r.ms + ' ms' : ''}</span>
+    </div>
+    <ul class="findings">${(r.findings || []).map((x) => `<li class="${x.level}">${esc(x.text)}</li>`).join('')}</ul>
+    <details><summary>Signals, headers, redirects</summary>${detailsHtml(r)}</details>
+    <div class="actions"></div>`;
+  const actions = el.querySelector('.actions');
+  const bp = document.createElement('button'); bp.className = 'btn sm'; bp.textContent = 'Copy agent prompt';
+  bp.onclick = () => { copyText(r.agentPrompt || 'No prompt generated.'); track('copy-agent-prompt', { verdict: r.verdict }); };
+  const bj = document.createElement('button'); bj.className = 'btn sm'; bj.textContent = 'Copy JSON';
+  bj.onclick = () => copyText(JSON.stringify(r, null, 2));
+  actions.append(bp, bj);
+  if (r.agentPrompt) actions.appendChild(aiBar(() => r.agentPrompt, 'result'));
+  return el;
+}
+
+function detailsHtml(r) {
+  const parts = [];
+  if (r.comparison) {
+    const c = r.comparison;
+    parts.push(`<table><tr><th>Detected</th><th>Latest on branch</th><th>Behind</th><th>Branch status</th><th>Active until</th><th>EOL</th><th>Newest branch</th></tr>
+      <tr><td class="mono">${esc(c.detected)}</td><td class="mono">${esc(c.latestOnBranch || '')} <span class="status">${esc(c.latestDate || '')}</span></td><td>${c.patchesBehind ?? '?'}</td><td>${esc(c.branchStatus)}</td><td>${esc(c.activeSupportUntil || '-')}</td><td>${esc(c.eol || '-')}</td><td>${esc(c.newestBranch || '-')}</td></tr></table>`);
+  }
+  if ((r.advisories || []).length) parts.push(`<p><b>Advisories</b></p><ul>${r.advisories.map((a) => `<li>${esc(a.id)}: ${esc(a.title)}${a.fixedIn ? ` — fixed in ${esc(a.fixedIn)}` : ''} <a href="${esc(a.url)}" target="_blank" rel="noopener">php.net</a></li>`).join('')}</ul>`);
+  if ((r.signals || []).length) parts.push(`<p><b>Signals</b> (what was and was not available)</p><table><tr><th>Where</th><th>Source</th><th>Value</th><th>Meaning</th></tr>${r.signals.map((s) => `<tr><td>${esc(s.where)}</td><td><code>${esc(s.header)}</code></td><td><code>${esc(s.value)}</code></td><td>${esc(s.text)}</td></tr>`).join('')}</table>`);
+  else parts.push('<p class="status">No PHP-related signals in any response.</p>');
+  if ((r.http?.redirects || []).length) parts.push(`<p><b>Redirect chain</b></p><ol style="font-size:13px">${r.http.redirects.map((x) => `<li>${esc(x.from)} → <code>${x.status}</code> → ${esc(x.to || '?')}</li>`).join('')}</ol>`);
+  if ((r.http?.attempts || []).length) parts.push(`<p><b>Attempts</b></p><ul style="font-size:13px">${r.http.attempts.map((a) => `<li><code>${a.method}</code> ${esc(a.url)} → ${a.ok ? 'HTTP ' + a.status : 'failed: ' + esc(a.error || '')}</li>`).join('')}</ul>`);
+  const hdr = Object.entries(r.headers || {});
+  if (hdr.length) parts.push(`<p><b>Response headers (final)</b></p><pre>${hdr.map(([k, v]) => esc(k) + ': ' + esc(v)).join('\n')}</pre>`);
+  return parts.join('');
+}
+
+function renderReleases() {
+  if (!releases) return;
+  const rows = Object.values(releases.branches).filter((b) => b.status !== 'eol').sort((a, b) => b.branch.localeCompare(a.branch, undefined, { numeric: true }));
+  const cls = { eol: 'v-eol', security: 'v-distro', active: 'v-latest' };
+  const label = { eol: 'end-of-life', security: 'security fixes only', active: 'active support' };
+  $('#releases-box').innerHTML = `<table><tr><th>Branch</th><th>Latest</th><th>Released</th><th>Tags</th><th>Status</th><th>Active support until</th><th>Security support until</th></tr>
+    ${rows.map((b) => `<tr><td class="mono">${esc(b.branch)}</td><td class="mono"><b>${esc(b.latest || '-')}</b></td><td>${esc(b.latestDate || '-')}</td><td>${esc((b.latestTags || []).join(', '))}</td><td><span class="verdict ${cls[b.status] || 'v-no-signal'}">${esc(label[b.status] || b.status)}</span></td><td>${esc(b.activeSupportUntil || '-')}</td><td>${esc(b.eol || '-')}</td></tr>`).join('')}</table>
+    <p class="status" style="margin:10px 0 0">Sources: php.net${releases.sources.phpnet ? '' : ' (unavailable)'} · endoflife.date${releases.sources.endoflife ? '' : ' (unavailable)'} · fetched ${esc(releases.fetchedAt.replace('T', ' ').slice(0, 16))} UTC</p>`;
+}
+
+$('#csv').addEventListener('click', () => {
+  const cols = ['input', 'host', 'final_url', 'http_status', 'verdict', 'php_detected', 'version', 'version_source', 'distro_build', 'branch', 'latest_on_branch', 'patches_behind', 'branch_status', 'active_support_until', 'eol', 'advisories', 'server_header', 'x_powered_by', 'findings'];
+  const lines = [cols.join(',')];
+  for (const r of results) {
+    const c = r.comparison || {}; const h = r.headers || {};
+    const row = [r.input, r.host, r.http?.finalUrl, r.http?.status, r.verdict, r.php?.detected, r.php?.version, r.php?.source, r.php?.distroBuild, r.php?.branch, c.latestOnBranch, c.patchesBehind, c.branchStatus, c.activeSupportUntil, c.eol, (r.advisories || []).map((a) => a.id).join(' '), h['server'], h['x-powered-by'], (r.findings || []).map((x) => x.text).join(' | ')];
+    lines.push(row.map(csv).join(','));
+  }
+  download('php-check.csv', lines.join('\n'), 'text/csv');
+});
+$('#jsonx').addEventListener('click', () => download('php-check.json', JSON.stringify({ checkedAt: new Date().toISOString(), releases, results }, null, 2), 'application/json'));
+
+function csv(v) { if (v === undefined || v === null) return ''; const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function download(name, text, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+fetch('/api/releases').then((r) => r.json()).then((d) => { releases = d; renderReleases(); }).catch((e) => { $('#releases-box').innerHTML = '<span class="status">Could not load release data: ' + esc(e.message) + '</span>'; });
+</script>
+</body>
+</html>
