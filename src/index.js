@@ -751,6 +751,8 @@ async function importCloudflare(token) {
   // account-owned tokens are just as valid for listing zones. The zones call reports errors itself.
   const domains = [];
   const accounts = new Set();
+  let total = null;
+  let truncated = false;
   for (let page = 1; page <= IMPORT_MAX_PAGES; page++) {
     const r = await apiGet(`https://api.cloudflare.com/client/v4/zones?per_page=50&page=${page}`, token);
     if (!r.data || r.data.success === false) {
@@ -765,14 +767,17 @@ async function importCloudflare(token) {
       if (z.account?.name) accounts.add(z.account.name);
     }
     const info = r.data.result_info || {};
+    if (info.total_count) total = info.total_count;
     if (!info.total_pages || page >= info.total_pages) break;
+    if (page === IMPORT_MAX_PAGES && info.total_pages > IMPORT_MAX_PAGES) truncated = true;
   }
-  return { provider: 'cloudflare', accounts: [...accounts], count: domains.length, domains };
+  return { provider: 'cloudflare', accounts: [...accounts], count: domains.length, total: total ?? domains.length, truncated, domains, ...(truncated ? { warning: `Only the first ${domains.length} of ${total} zones were listed (page limit of ${IMPORT_MAX_PAGES * 50}).` } : {}) };
 }
 
 async function importVercel(token, teamId) {
   const team = teamId ? (teamId.startsWith('team_') ? `&teamId=${encodeURIComponent(teamId)}` : `&slug=${encodeURIComponent(teamId)}`) : '';
   const seen = new Map();
+  let vercelTruncated = false;
   let until = '';
   for (let page = 1; page <= IMPORT_MAX_PAGES; page++) {
     const r = await apiGet(`https://api.vercel.com/v9/projects?limit=100${team}${until}`, token);
@@ -793,6 +798,7 @@ async function importVercel(token, teamId) {
     }
     const next = r.data.pagination?.next;
     if (!next) break;
+    if (page === IMPORT_MAX_PAGES) vercelTruncated = true;
     until = `&until=${next}`;
   }
   // Domains added to the account/team but not attached to a project's production alias
@@ -804,7 +810,7 @@ async function importVercel(token, teamId) {
     }
   }
   const domains = [...seen.values()];
-  return { provider: 'vercel', count: domains.length, domains };
+  return { provider: 'vercel', count: domains.length, truncated: vercelTruncated, domains, ...(vercelTruncated ? { warning: `Only the first ${IMPORT_MAX_PAGES * 100} projects were listed; add the remaining domains by hand.` } : {}) };
 }
 
 // ---------------------------------------------------------------------------
