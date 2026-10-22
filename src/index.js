@@ -9,6 +9,8 @@
  * /*                            -> static UI from ./public
  */
 
+import { enrichSecurity } from './security.js';
+
 const UA = 'php-version-check/0.1 (passive header check; HEAD/GET of the homepage only)';
 const PHPNET_ACTIVE = 'https://www.php.net/releases/active.php';
 const ENDOFLIFE = 'https://endoflife.date/api/php.json';
@@ -70,7 +72,7 @@ export default {
           return json({ error: `Max ${MAX_TARGETS} targets per request; the UI chunks larger lists.` }, 400);
         }
         const releases = await getReleases(ctx);
-        const results = await pool(targets, CONCURRENCY, (t) => checkTarget(t, releases));
+        const results = await pool(targets, CONCURRENCY, (t) => checkTarget(t, releases, env, ctx));
         return json({ checkedAt: new Date().toISOString(), releases: summarizeReleases(releases), results });
       }
       if (url.pathname === '/api/import') {
@@ -214,7 +216,7 @@ function isPrivateHost(host) {
   return false;
 }
 
-async function checkTarget(raw, releases) {
+async function checkTarget(raw, releases, env, ctx) {
   const started = Date.now();
   const norm = normalizeTarget(raw);
   const result = {
@@ -227,6 +229,10 @@ async function checkTarget(raw, releases) {
     signals: [],
     stack: [],
     html: null,
+    security: null,
+    libraries: [],
+    cms: null,
+    server: [],
     findings: [],
     branchInfo: null,
     comparison: null,
@@ -276,7 +282,9 @@ async function checkTarget(raw, releases) {
   if (chainMethod === 'GET') {
     body = chain.body || '';
     result.findings.push(f('info', 'HEAD requests time out on this server; GET was used instead.'));
-  } else if (headRefused || !headSignals.phpVersion) {
+  } else {
+    // Always fetch the body: libraries, CMS and framework markers live in the HTML.
+    void headRefused; void headSignals;
     const g = await fetchChain(chain.hops[chain.hops.length - 1].url, 'GET', 2);
     result.http.attempts.push({ url: chain.hops[chain.hops.length - 1].url, method: 'GET', ok: !g.error, error: g.error || null, status: g.final?.status ?? null });
     if (!g.error) {
@@ -324,6 +332,13 @@ async function checkTarget(raw, releases) {
   // 4. Compare against releases
   evaluate(result, releases);
 
+  // 5. Security headers, JS libraries, CMS, server software (no extra requests to the site)
+  try {
+    await enrichSecurity(result, body, chain.hops[chain.hops.length - 1].setCookies || [], env, ctx);
+  } catch (e) {
+    result.findings.push(f('info', `Security enrichment skipped: ${shortError(e)}`));
+  }
+
   result.agentPrompt = buildAgentPrompt(result, releases);
   result.ms = Date.now() - started;
   return result;
@@ -345,7 +360,7 @@ async function fetchChain(startUrl, method, maxRedirects = MAX_REDIRECTS) {
     } catch (e) {
       return { error: shortError(e), hops };
     }
-    const hop = { url: current, status: res.status, headers: headersToObject(res.headers), location: null };
+    const hop = { url: current, status: res.status, headers: headersToObject(res.headers), setCookies: typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [], location: null };
     hops.push(hop);
     if ([301, 302, 303, 307, 308].includes(res.status)) {
       const loc = res.headers.get('location');
@@ -730,6 +745,10 @@ function buildAgentPrompt(r, releases) {
   if (php.version) observed.push(`- PHP version exposed: ${php.version} via ${php.source} header (raw: "${php.raw}")${php.distroBuild ? ' — distribution build' : ''}`);
   else if (php.detected) observed.push('- PHP detected (markers present) but the version is hidden');
   else observed.push('- No PHP markers found in headers or HTML');
+  if (r.security) observed.push(`- Security headers grade ${r.security.grade}: ${r.security.checks.filter((c) => c.status !== 'ok').map((c) => `${c.name} (${c.status}${c.value ? ': ' + c.value : ''})`).join('; ') || 'all checks pass'}`);
+  for (const l of r.libraries || []) if (l.vulnerabilities.length) observed.push(`- JS library ${l.name} ${l.version} (${l.url}): ${l.vulnerabilities.map((v) => `${v.severity} ${v.cve?.[0] || v.ghsa || ''} ${v.summary || ''}`.trim()).join('; ')}`);
+  if (r.cms) observed.push(`- CMS: ${r.cms.name} ${r.cms.version || '(version hidden)'}${r.cms.latest ? `, latest ${r.cms.latest}` : ''}${r.cms.plugins?.length ? `; plugins: ${r.cms.plugins.map((p) => `${p.slug} ${p.version || '?'}${p.latest ? ' (latest ' + p.latest + ')' : ''}${p.vulnerabilities?.length ? ' VULNERABLE' : ''}`).join(', ')}` : ''}`);
+  for (const s of r.server || []) observed.push(`- Server software: ${s.name} ${s.version || ''} ${s.status}${s.latest ? ` (current ${s.latest})` : ''}`);
   for (const s of r.signals) observed.push(`- Signal: ${s.text} [${s.header}: ${s.value}]`);
   for (const x of r.findings) observed.push(`- ${x.level.toUpperCase()}: ${x.text}`);
 
@@ -775,7 +794,13 @@ function buildAgentPrompt(r, releases) {
    - Outside: curl -sI ${r.http.finalUrl || 'https://' + host} | grep -i -E 'x-powered-by|server'
    - Run the application's smoke tests / open the main pages; check the PHP error log for new deprecation notices.
    - Then set expose_php = Off in php.ini (and remove any "Header set X-Powered-By") so the version is no longer advertised; restart and re-run the curl to confirm the header is gone.`);
-  steps.push(`5. REPORT back in this format: host, before version, after version, branch status, advisories closed, header exposure (on/off), anything left open.`);
+  const extra = [];
+  if (r.security && r.security.checks.some((c) => c.status === 'bad' || c.status === 'warn')) extra.push(`- Security headers: ${r.security.checks.filter((c) => c.status === 'bad' || c.status === 'warn').map((c) => `${c.name}: ${c.advice}`).join(' ')} Set them in the web server or application config, then re-run curl -sI and confirm each header.`);
+  if ((r.libraries || []).some((l) => l.vulnerabilities.length)) extra.push(`- JavaScript libraries: ${r.libraries.filter((l) => l.vulnerabilities.length).map((l) => `update ${l.name} from ${l.version} (loaded from ${l.url})`).join('; ')}. Find who ships it (theme, plugin, bundler) and update that package rather than the file.`);
+  if (r.cms?.name === 'WordPress') extra.push(`- WordPress: update core to ${r.cms.latest || 'the current release'} and every plugin from the admin or with wp-cli (wp core update && wp plugin update --all), after a backup. Remove plugins that are no longer in the directory or unmaintained.`);
+  if ((r.server || []).some((s) => s.status === 'eol' || s.status === 'outdated')) extra.push(`- Web server: ${r.server.filter((s) => s.status === 'eol' || s.status === 'outdated').map((s) => `${s.name} ${s.version} → ${s.latest || 'a supported release'}`).join(', ')} via the distro package manager or the vendor repository; remove the version from the Server header (ServerTokens Prod / server_tokens off).`);
+  if (extra.length) steps.push(`5. OTHER FINDINGS from the same response, fix in the same maintenance window:\n${extra.join('\n')}`);
+  steps.push(`${extra.length ? 6 : 5}. REPORT back in this format: host, before version, after version, branch status, advisories closed, header exposure (on/off), security header grade, anything left open.`);
 
   const advisories = r.advisories.length
     ? `\nAdvisories that apply:\n${r.advisories.map((a) => `  - ${a.id}: ${a.title}${a.fixedIn ? ` (fixed in ${a.fixedIn})` : ''} — ${a.url}`).join('\n')}\n`
@@ -921,7 +946,7 @@ const MCP_TOOLS = [
     name: 'check_php_version',
     title: 'Check PHP version of websites',
     description:
-      'Passively reads the PHP version one or more websites expose (X-Powered-By / Server headers and CMS markers), compares it with the current php.net releases and returns a verdict per site (latest, outdated, eol, distro, partial, php-no-version, not-php, no-signal, unreachable), the evidence, applicable advisories and a ready-made check/confirm/fix prompt. Only the homepage is requested. Max 20 targets per call.',
+      'Passively checks one or more websites from a single homepage response: PHP version vs php.net releases (verdicts: latest, outdated, eol, distro, partial, php-no-version, not-php, no-signal, unreachable), security headers and cookie flags graded A-F, JavaScript libraries with known vulnerabilities (Retire.js), WordPress core and plugin versions vs wordpress.org, and web server versions vs endoflife.date. Returns evidence, findings and a ready-made check/confirm/fix prompt per site. Max 20 targets per call.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -977,7 +1002,7 @@ async function handleMcp(request, env, ctx) {
     }
     const isNotification = m.id === undefined || m.id === null;
     try {
-      const result = await mcpDispatch(m, ctx);
+      const result = await mcpDispatch(m, env, ctx);
       if (!isNotification) responses.push({ jsonrpc: '2.0', id: m.id, result });
     } catch (e) {
       if (!isNotification) responses.push({ jsonrpc: '2.0', id: m.id, error: { code: e.code || -32603, message: e.message || 'Internal error' } });
@@ -997,7 +1022,7 @@ function rpcError(code, message) {
   return e;
 }
 
-async function mcpDispatch(m, ctx) {
+async function mcpDispatch(m, env, ctx) {
   const p = m.params || {};
   switch (m.method) {
     case 'initialize': {
@@ -1018,7 +1043,7 @@ async function mcpDispatch(m, ctx) {
     case 'tools/list':
       return { tools: MCP_TOOLS };
     case 'tools/call':
-      return mcpCallTool(p.name, p.arguments || {}, ctx);
+      return mcpCallTool(p.name, p.arguments || {}, env, ctx);
     case 'resources/list':
       return { resources: [] };
     case 'prompts/list':
@@ -1028,7 +1053,7 @@ async function mcpDispatch(m, ctx) {
   }
 }
 
-async function mcpCallTool(name, args, ctx) {
+async function mcpCallTool(name, args, env, ctx) {
   if (name === 'php_releases') {
     const rel = summarizeReleases(await getReleases(ctx));
     return { content: [{ type: 'text', text: JSON.stringify(rel, null, 2) }], structuredContent: rel };
@@ -1038,7 +1063,7 @@ async function mcpCallTool(name, args, ctx) {
     if (targets.length === 0) return { isError: true, content: [{ type: 'text', text: 'Give at least one target in "targets".' }] };
     if (targets.length > MAX_TARGETS) return { isError: true, content: [{ type: 'text', text: `Max ${MAX_TARGETS} targets per call.` }] };
     const releases = await getReleases(ctx);
-    const results = await pool(targets, CONCURRENCY, (t) => checkTarget(t, releases));
+    const results = await pool(targets, CONCURRENCY, (t) => checkTarget(t, releases, env, ctx));
     const out = { checkedAt: new Date().toISOString(), results };
     const lines = results.map((r) => {
       const v = r.php?.version ? `PHP ${r.php.version}` + (r.comparison?.latestOnBranch ? ` (latest on branch: ${r.comparison.latestOnBranch})` : '') : r.php?.detected ? 'PHP, version hidden' : 'no PHP signal';

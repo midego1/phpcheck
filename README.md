@@ -71,3 +71,16 @@ Streamable HTTP endpoint at `/mcp` (stateless; JSON responses, no SSE). Tools:
 ```bash
 claude mcp add --transport http phpcheck https://phpcheck.midego.net/mcp
 ```
+
+## Security checks (same response, no extra requests to the site)
+
+- **Security headers and cookies**: HSTS, CSP, clickjacking protection, nosniff, Referrer-Policy,
+  Permissions-Policy, X-Powered-By, and Secure / HttpOnly / SameSite on every Set-Cookie. Graded A–F.
+- **JavaScript libraries**: script and stylesheet URLs matched against the Retire.js database
+  (URL and filename extractors only). Known CVEs with severity and the first fixed version.
+- **CMS**: WordPress core version (generator meta or `?ver=` on core assets), visible plugins with
+  versions, theme; compared with wordpress.org. Set a `WPSCAN_TOKEN` secret
+  (`npx wrangler secret put WPSCAN_TOKEN`) to add CVE lookups for core and plugins via WPScan.
+  Drupal, Joomla and TYPO3 versions from the generator meta; Drupal checked against endoflife.date.
+- **Server software**: Apache httpd, nginx and OpenSSL versions from the Server header against
+  endoflife.date; IIS, LiteSpeed, OpenResty and Caddy are reported without a lifecycle check.
