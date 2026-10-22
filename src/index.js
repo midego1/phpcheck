@@ -860,6 +860,7 @@ async function importVercel(token, teamId) {
   const seen = new Map();
   let vercelTruncated = false;
   let partialReason = '';
+  let note = '';
   let until = '';
   for (let page = 1; page <= IMPORT_MAX_PAGES; page++) {
     const r = await apiGet(`https://api.vercel.com/v9/projects?limit=100${team}${until}`, token);
@@ -888,8 +889,10 @@ async function importVercel(token, teamId) {
   for (let page = 1; page <= IMPORT_MAX_PAGES; page++) {
     const d = await apiGet(`https://api.vercel.com/v5/domains?limit=100${team}${dUntil}`, token);
     if (!d.data || !Array.isArray(d.data.domains)) {
-      // The first page is optional (some tokens cannot list account domains); a failed later page means a partial list.
+      // The first page is optional (some tokens cannot list account domains) but is still reported;
+      // a failed later page means the list is partial.
       if (page > 1) { vercelTruncated = true; partialReason = `domain page ${page} failed (HTTP ${d.status})`; }
+      else note = `Account domain list unavailable (HTTP ${d.status}); only domains attached to projects were listed.`;
       break;
     }
     for (const x of d.data.domains) {
@@ -905,7 +908,7 @@ async function importVercel(token, teamId) {
   const warning = partialReason
     ? `The domain list is incomplete: ${partialReason}. Add the remaining domains by hand or retry.`
     : `Only the first ${IMPORT_MAX_PAGES * 100} projects or domains were listed; add the remaining domains by hand.`;
-  return { provider: 'vercel', count: domains.length, truncated: vercelTruncated, domains, ...(vercelTruncated ? { warning } : {}) };
+  return { provider: 'vercel', count: domains.length, truncated: vercelTruncated, domains, ...(vercelTruncated ? { warning } : {}), ...(note ? { note } : {}) };
 }
 
 // ---------------------------------------------------------------------------
