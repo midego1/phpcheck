@@ -364,7 +364,7 @@ $('#import').addEventListener('submit', async (e) => {
     $('#import').hidden = true;
     const total = parseTargets().length;
     toast(`${fresh.length} domain${fresh.length === 1 ? '' : 's'} imported from ${importProvider === 'cloudflare' ? 'Cloudflare' : 'Vercel'}`);
-    $('#status').textContent = `${data.count} found, ${fresh.length} new, ${total} in the list` + (total > MAX ? ` (the first ${MAX} will be checked)` : '') + (data.warning ? ` — ${data.warning}` : '');
+    $('#status').textContent = `${data.count} found, ${fresh.length} new, ${total} in the list` + (total > MAX ? ` (the first ${MAX} will be checked)` : '') + (data.warning ? ` — ${data.warning}` : '') + (data.note ? ` — ${data.note}` : '');
     track('import', { provider: importProvider, count: data.count });
   } catch (err) {
     $('#imp-help').textContent = err.message;
