@@ -124,7 +124,7 @@
   /* layout */
   .layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start;padding-top:28px;padding-bottom:48px}
   .main{display:flex;flex-direction:column;gap:20px;min-width:0}
-  .side{display:flex;flex-direction:column;gap:16px;position:sticky;top:72px;max-height:calc(100vh - 88px);overflow-y:auto;scrollbar-width:thin;padding-right:2px}
+  .side{display:flex;flex-direction:column;gap:16px}
   .intro h1{font-size:28px;font-weight:700;line-height:1.2}
   .intro p{color:hsl(var(--muted-foreground));font-size:15px;margin-top:8px;max-width:680px}
 
@@ -197,19 +197,18 @@
   .kv{display:flex;flex-direction:column;gap:8px;font-size:13px}
   .kv div{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
 
-  .prompts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-  .prompts .card{display:flex;flex-direction:column;min-width:0}
-  .prompts .card-f{flex-direction:column;align-items:flex-start;gap:10px}
-  .prompts .ai{margin-left:0}
+  .prompts{display:flex;flex-direction:column;gap:16px}
+  .prompts .card{min-width:0}
+  .prompts pre{max-height:none}
   .prompts .card-c{flex:1;padding-top:14px}
-  .prompts pre{max-height:240px;font-size:12px}
+  .prompts pre{font-size:12.5px}
   .prompts .card-f{padding-top:0}
   footer{color:hsl(var(--muted-foreground));font-size:12.5px;display:flex;flex-wrap:wrap;gap:6px 20px;padding-top:8px}
   footer a{text-decoration:underline}
   .toast{position:fixed;bottom:20px;right:20px;background:hsl(var(--background));color:hsl(var(--foreground));border:1px solid hsl(var(--border));box-shadow:0 10px 30px -10px rgb(0 0 0/.3);padding:10px 14px;border-radius:var(--radius);font-size:13.5px;font-weight:500;opacity:0;transform:translateY(8px);transition:all .18s ease-out;pointer-events:none;z-index:50}
   .toast.show{opacity:1;transform:none}
-  @media(max-width:1000px){.layout{grid-template-columns:1fr}.side{position:static;max-height:none;overflow:visible}.prompts{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media(max-width:680px){.prompts{grid-template-columns:minmax(0,1fr)}.hdr nav{display:none}.card-h,.card-c{padding-left:16px;padding-right:16px}.card-f{padding-left:16px;padding-right:16px}.rc .meta{margin-left:0;width:100%}.container{padding:0 16px}}
+  @media(max-width:1000px){.layout{grid-template-columns:1fr}}
+  @media(max-width:680px){.hdr nav{display:none}.card-h,.card-c{padding-left:16px;padding-right:16px}.card-f{padding-left:16px;padding-right:16px}.rc .meta{margin-left:0;width:100%}.container{padding:0 16px}}
   @media(prefers-reduced-motion:reduce){*{transition:none!important}html{scroll-behavior:auto}}
 </style>
 </head>
