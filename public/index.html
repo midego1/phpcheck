@@ -332,9 +332,10 @@ document.querySelectorAll('[data-ex]').forEach((c) => c.addEventListener('click'
   const ta = $('#targets'); const cur = ta.value.trim();
   ta.value = (cur ? cur + '\n' : '') + c.dataset.ex; ta.focus();
 }));
+const CF_TOKEN_URL = 'https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=' + encodeURIComponent('[{"key":"zone","type":"read"}]') + '&accountId=*&zoneId=all&name=' + encodeURIComponent('PHP Check (zone read)');
 const IMPORT_HELP = {
-  cloudflare: 'Create a token at dash.cloudflare.com → My Profile → API Tokens with one permission: Zone · Zone · Read, all zones. It is sent once to list your zones and is not stored.',
-  vercel: 'Create a token at vercel.com/account/tokens. For a team, add the team slug or ID. It is sent once to list project domains and is not stored.',
+  cloudflare: `<a href="${CF_TOKEN_URL}" target="_blank" rel="noopener">Create the token in Cloudflare</a> (opens the dashboard with "Zone · Zone · Read, all zones" prefilled; click Continue to summary, then Create Token and copy it). It is sent once to list your zones and is not stored.`,
+  vercel: '<a href="https://vercel.com/account/tokens" target="_blank" rel="noopener">Create a token in Vercel</a>. For a team, add the team slug or ID below. It is sent once to list project domains and is not stored.',
 };
 let importProvider = null;
 document.querySelectorAll('[data-import]').forEach((b) => b.addEventListener('click', () => {
@@ -342,7 +343,7 @@ document.querySelectorAll('[data-import]').forEach((b) => b.addEventListener('cl
   const f = $('#import'); f.hidden = false;
   $('#imp-label').textContent = importProvider === 'cloudflare' ? 'Cloudflare API token' : 'Vercel token';
   $('#imp-team').hidden = $('#imp-team-label').hidden = importProvider !== 'vercel';
-  $('#imp-help').textContent = IMPORT_HELP[importProvider];
+  $('#imp-help').innerHTML = IMPORT_HELP[importProvider];
   $('#imp-token').value = ''; $('#imp-token').focus();
 }));
 $('#imp-cancel').addEventListener('click', () => { $('#import').hidden = true; $('#imp-token').value = ''; });
@@ -363,7 +364,7 @@ $('#import').addEventListener('submit', async (e) => {
     $('#import').hidden = true;
     const total = parseTargets().length;
     toast(`${fresh.length} domain${fresh.length === 1 ? '' : 's'} imported from ${importProvider === 'cloudflare' ? 'Cloudflare' : 'Vercel'}`);
-    $('#status').textContent = `${data.count} found, ${fresh.length} new, ${total} in the list` + (total > MAX ? ` (the first ${MAX} will be checked)` : '');
+    $('#status').textContent = `${data.count} found, ${fresh.length} new, ${total} in the list` + (total > MAX ? ` (the first ${MAX} will be checked)` : '') + (data.warning ? ` — ${data.warning}` : '') + (data.note ? ` — ${data.note}` : '');
     track('import', { provider: importProvider, count: data.count });
   } catch (err) {
     $('#imp-help').textContent = err.message;

@@ -747,32 +747,39 @@ async function apiGet(url, token) {
 }
 
 async function importCloudflare(token) {
-  const verify = await apiGet('https://api.cloudflare.com/client/v4/user/tokens/verify', token);
-  if (verify.status === 401 || verify.status === 403 || (verify.data && verify.data.success === false)) {
-    const msg = verify.data?.errors?.map((e) => e.message).join('; ') || `HTTP ${verify.status}`;
-    return { error: `Cloudflare rejected the token: ${msg}. Create one at dash.cloudflare.com/profile/api-tokens with permission "Zone · Zone · Read" for all zones.` };
-  }
+  // No separate verify call: /user/tokens/verify only accepts user-owned tokens, and
+  // account-owned tokens are just as valid for listing zones. The zones call reports errors itself.
   const domains = [];
   const accounts = new Set();
+  let total = null;
+  let truncated = false;
   for (let page = 1; page <= IMPORT_MAX_PAGES; page++) {
-    const r = await apiGet(`https://api.cloudflare.com/client/v4/zones?per_page=50&page=${page}&status=active`, token);
+    const r = await apiGet(`https://api.cloudflare.com/client/v4/zones?per_page=50&page=${page}`, token);
     if (!r.data || r.data.success === false) {
       const msg = r.data?.errors?.map((e) => e.message).join('; ') || `HTTP ${r.status}`;
-      return { error: `Could not list zones: ${msg}. The token needs "Zone · Zone · Read".` };
+      const hint = r.status === 400 || r.status === 401 || r.status === 403
+        ? ' Create a token at dash.cloudflare.com → My Profile → API Tokens (or Account → API Tokens) with permission "Zone · Zone · Read" for all zones, and paste it without surrounding spaces.'
+        : '';
+      return { error: `Cloudflare could not list zones: ${msg}.${hint}` };
     }
     for (const z of r.data.result || []) {
       domains.push({ domain: z.name, source: 'cloudflare', account: z.account?.name || null, status: z.status, plan: z.plan?.name || null });
       if (z.account?.name) accounts.add(z.account.name);
     }
     const info = r.data.result_info || {};
+    if (info.total_count) total = info.total_count;
     if (!info.total_pages || page >= info.total_pages) break;
+    if (page === IMPORT_MAX_PAGES && info.total_pages > IMPORT_MAX_PAGES) truncated = true;
   }
-  return { provider: 'cloudflare', accounts: [...accounts], count: domains.length, domains };
+  return { provider: 'cloudflare', accounts: [...accounts], count: domains.length, total: total ?? domains.length, truncated, domains, ...(truncated ? { warning: `Only the first ${domains.length} of ${total} zones were listed (page limit of ${IMPORT_MAX_PAGES * 50}).` } : {}) };
 }
 
 async function importVercel(token, teamId) {
   const team = teamId ? (teamId.startsWith('team_') ? `&teamId=${encodeURIComponent(teamId)}` : `&slug=${encodeURIComponent(teamId)}`) : '';
   const seen = new Map();
+  let vercelTruncated = false;
+  let partialReason = '';
+  let note = '';
   let until = '';
   for (let page = 1; page <= IMPORT_MAX_PAGES; page++) {
     const r = await apiGet(`https://api.vercel.com/v9/projects?limit=100${team}${until}`, token);
@@ -793,18 +800,34 @@ async function importVercel(token, teamId) {
     }
     const next = r.data.pagination?.next;
     if (!next) break;
+    if (page === IMPORT_MAX_PAGES) vercelTruncated = true;
     until = `&until=${next}`;
   }
-  // Domains added to the account/team but not attached to a project's production alias
-  const d = await apiGet(`https://api.vercel.com/v5/domains?limit=100${team}`, token);
-  if (d.data && Array.isArray(d.data.domains)) {
+  // Domains added to the account/team but not attached to a project's production alias (paginated too)
+  let dUntil = '';
+  for (let page = 1; page <= IMPORT_MAX_PAGES; page++) {
+    const d = await apiGet(`https://api.vercel.com/v5/domains?limit=100${team}${dUntil}`, token);
+    if (!d.data || !Array.isArray(d.data.domains)) {
+      // The first page is optional (some tokens cannot list account domains) but is still reported;
+      // a failed later page means the list is partial.
+      if (page > 1) { vercelTruncated = true; partialReason = `domain page ${page} failed (HTTP ${d.status})`; }
+      else note = `Account domain list unavailable (HTTP ${d.status}); only domains attached to projects were listed.`;
+      break;
+    }
     for (const x of d.data.domains) {
       const host = String(x.name || '').toLowerCase();
       if (host && !seen.has(host)) seen.set(host, { domain: host, source: 'vercel', project: null, framework: null });
     }
+    const next = d.data.pagination?.next;
+    if (!next) break;
+    if (page === IMPORT_MAX_PAGES) vercelTruncated = true;
+    dUntil = `&until=${next}`;
   }
   const domains = [...seen.values()];
-  return { provider: 'vercel', count: domains.length, domains };
+  const warning = partialReason
+    ? `The domain list is incomplete: ${partialReason}. Add the remaining domains by hand or retry.`
+    : `Only the first ${IMPORT_MAX_PAGES * 100} projects or domains were listed; add the remaining domains by hand.`;
+  return { provider: 'vercel', count: domains.length, truncated: vercelTruncated, domains, ...(vercelTruncated ? { warning } : {}), ...(note ? { note } : {}) };
 }
 
 // ---------------------------------------------------------------------------
