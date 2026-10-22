@@ -1,0 +1,45 @@
+name: deploy
+# Deploys the Worker from main together with the WordPress vulnerability index.
+# - push to main: reuse the cached index when it is fresher than 20 h, else rebuild it
+# - nightly 03:17 UTC: always rebuild the index from the Wordfence feed
+# - manual: workflow_dispatch
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+concurrency: deploy
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Restore last vulnerability index
+        uses: actions/cache/restore@v4
+        with:
+          path: public/vuln
+          key: vuln-index-${{ github.run_id }}
+          restore-keys: vuln-index-
+      - name: Build vulnerability index
+        env:
+          WORDFENCE_KEY: ${{ secrets.WORDFENCE_KEY }}
+        run: node scripts/build-vuln-index.mjs --max-age-hours ${{ github.event_name == 'schedule' && '0' || '20' }}
+      - name: Save vulnerability index
+        uses: actions/cache/save@v4
+        with:
+          path: public/vuln
+          key: vuln-index-${{ github.run_id }}
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 3a28d4e756f4b9649c2e82c48544783d
+        run: npx wrangler deploy
