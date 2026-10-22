@@ -13,6 +13,8 @@ const canned = {
   'headonly.example': { status: 405, headers: { server: 'nginx' }, get: { status: 200, headers: { 'x-powered-by': 'PHP/8.5.12' } } },
   'body.example':     { status: 200, headers: { server: 'nginx' }, body: '<html><head><meta name="generator" content="WordPress 6.9"></head><body><a href="/index.php?x=1">x</a></body></html>' },
   'old.example':      { status: 200, headers: { 'x-powered-by': 'PHP/5.6.40' } },
+  'nextjs.example':   { status: 200, headers: { server: 'Vercel', 'x-vercel-id': 'ams1::abc', 'x-powered-by': 'Next.js' }, body: '<html><head><script src="/_next/static/chunks/main.js"></script></head></html>' },
+  'cdnonly.example':  { status: 200, headers: { server: 'cloudflare', 'cf-ray': 'abc' }, body: '<html><body>hi</body></html>' },
 };
 globalThis.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : input.url;
@@ -27,7 +29,7 @@ const req = new Request('http://x/api/check', { method: 'POST', headers: { 'cont
 const res = await mod.default.fetch(req, { ASSETS: { fetch: () => new Response('') } }, { waitUntil() {} });
 const data = await res.json();
 if (data.error) { console.log('ERROR', data.error); process.exit(1); }
-const expect = { 'latest.example': 'latest', 'outdated.example': 'outdated', 'eol.example': 'eol', 'distro.example': 'distro', 'partial.example': 'partial', 'cookie.example': 'php-no-version', 'redirect.example': 'outdated', 'headonly.example': 'latest', 'body.example': 'php-no-version', 'old.example': 'eol' };
+const expect = { 'latest.example': 'latest', 'outdated.example': 'outdated', 'eol.example': 'eol', 'distro.example': 'distro', 'partial.example': 'partial', 'cookie.example': 'php-no-version', 'redirect.example': 'outdated', 'headonly.example': 'latest', 'body.example': 'php-no-version', 'old.example': 'eol', 'nextjs.example': 'not-php', 'cdnonly.example': 'no-signal' };
 let fail = 0;
 for (const r of data.results) {
   const ok = r.verdict === expect[r.input];
