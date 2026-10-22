@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev --port 8787",
-    "deploy": "wrangler deploy",
+    "deploy": "test -s public/vuln/meta.json || { echo 'public/vuln is missing: a local deploy would remove the vulnerability index. Deploy from GitHub Actions (push to main) or build the index first.'; exit 1; }; wrangler deploy",
     "test": "node test/harness.mjs"
   },
   "devDependencies": {

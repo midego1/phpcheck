@@ -16,13 +16,14 @@ npm run dev        # http://localhost:8787
 
 ## Deploy
 
-```bash
-npx wrangler login
-npm run deploy
-```
+Pushes to `main` deploy through `.github/workflows/deploy.yml`, which also carries the WordPress
+vulnerability index (rebuilt nightly, reused from cache for code-only deploys). It needs two GitHub
+secrets: `WORDFENCE_KEY` and `CLOUDFLARE_API_TOKEN` (Workers Scripts: Edit).
 
-No bindings or secrets needed. Release data comes from php.net and endoflife.date and is
-cached 6 h in the Workers Cache API.
+A local `npm run deploy` refuses to run unless `public/vuln/` exists, because a deploy replaces all
+static assets and would drop the index. Build it first with `WORDFENCE_KEY=… node scripts/build-vuln-index.mjs`.
+
+Release data comes from php.net and endoflife.date and is cached 6 h in the Workers Cache API.
 
 ## Import from Cloudflare or Vercel
 
@@ -81,11 +82,11 @@ claude mcp add --transport http phpcheck https://phpcheck.midego.net/mcp
 - **CMS**: WordPress core version (generator meta or `?ver=` on core assets), visible plugins with
   versions, theme; freshness from wordpress.org. Known vulnerabilities for core, plugins and theme
   come from the Wordfence Intelligence production feed (free, needs an API key). The workflow
-  `.github/workflows/vuln-feed.yml` downloads it once a day, `scripts/build-vuln-index.mjs` writes a
+  `.github/workflows/deploy.yml` downloads it once a day, `scripts/build-vuln-index.mjs` writes a
   compact index to `public/vuln/` (one small JSON file per two-character slug prefix), and the
   Worker is deployed with it as static assets, so a lookup reads one tiny file and the feed is
   fetched once a day worldwide. Setup: GitHub secrets `WORDFENCE_KEY` and `CLOUDFLARE_API_TOKEN`
-  (Workers Scripts: Edit), then `gh workflow run vuln-feed`. Local: `WORDFENCE_KEY=… node scripts/build-vuln-index.mjs`.
+  (Workers Scripts: Edit), then `gh workflow run deploy`. Local: `WORDFENCE_KEY=… node scripts/build-vuln-index.mjs`.
   Drupal, Joomla and TYPO3 versions from the generator meta; Drupal checked against endoflife.date.
 - **Server software**: Apache httpd, nginx and OpenSSL versions from the Server header against
   endoflife.date; IIS, LiteSpeed, OpenResty and Caddy are reported without a lifecycle check.

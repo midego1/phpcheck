@@ -2,7 +2,7 @@
 /**
  * Build public/vuln/ from the Wordfence Intelligence production feed.
  *
- * Usage: WORDFENCE_KEY=... node scripts/build-vuln-index.mjs [--from file.json] [--out public/vuln]
+ * Usage: WORDFENCE_KEY=... node scripts/build-vuln-index.mjs [--from file.json] [--out public/vuln] [--max-age-hours N]
  *
  * Output: core.json, plugin/<xx>.json, theme/<xx>.json (xx = first two slug characters, non
  * alphanumerics as "_"), meta.json. Each file maps slug -> compact vulnerability list. The whole
@@ -18,6 +18,19 @@ const args = process.argv.slice(2);
 const arg = (name, dflt) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : dflt; };
 const outDir = arg('--out', 'public/vuln');
 const fromFile = arg('--from', null);
+const maxAgeHours = Number(arg('--max-age-hours', '0'));
+
+// Reuse an existing index when it is fresh enough (CI restores it from cache between runs).
+if (maxAgeHours > 0) {
+  try {
+    const meta = JSON.parse(await readFile(join(outDir, 'meta.json'), 'utf8'));
+    const ageH = (Date.now() - Date.parse(meta.updatedAt)) / 36e5;
+    if (ageH < maxAgeHours && (await stat(join(outDir, 'core.json'))).size > 0) {
+      console.log(JSON.stringify({ reused: true, ageHours: Math.round(ageH * 10) / 10, ...meta }));
+      process.exit(0);
+    }
+  } catch {}
+}
 
 function prefixOf(slug) {
   const s = String(slug || '').toLowerCase();
