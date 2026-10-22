@@ -79,8 +79,11 @@ claude mcp add --transport http phpcheck https://phpcheck.midego.net/mcp
 - **JavaScript libraries**: script and stylesheet URLs matched against the Retire.js database
   (URL and filename extractors only). Known CVEs with severity and the first fixed version.
 - **CMS**: WordPress core version (generator meta or `?ver=` on core assets), visible plugins with
-  versions, theme; compared with wordpress.org. Set a `WPSCAN_TOKEN` secret
-  (`npx wrangler secret put WPSCAN_TOKEN`) to add CVE lookups for core and plugins via WPScan.
+  versions, theme; freshness from wordpress.org. Known vulnerabilities for core, plugins and theme
+  come from the Wordfence Intelligence feed (free, needs an API key): a daily cron downloads the
+  scanner feed once and stores a compact index in the `VULN_DB` KV namespace, so lookups cost nothing
+  per request. Setup: `npx wrangler secret put WORDFENCE_KEY`, then wait for the 03:17 UTC cron or
+  trigger it once with `npx wrangler dev --remote --test-scheduled` and `curl localhost:8787/__scheduled`.
   Drupal, Joomla and TYPO3 versions from the generator meta; Drupal checked against endoflife.date.
 - **Server software**: Apache httpd, nginx and OpenSSL versions from the Server header against
   endoflife.date; IIS, LiteSpeed, OpenResty and Caddy are reported without a lifecycle check.

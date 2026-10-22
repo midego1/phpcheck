@@ -10,6 +10,7 @@
  */
 
 import { enrichSecurity } from './security.js';
+import { refreshFeed, feedMeta } from './wordfence.js';
 
 const UA = 'php-version-check/0.1 (passive header check; HEAD/GET of the homepage only)';
 const PHPNET_ACTIVE = 'https://www.php.net/releases/active.php';
@@ -51,11 +52,17 @@ function tooMany(name) {
 }
 
 export default {
+  // Daily: download the Wordfence feed once and store it in KV for every location.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(refreshFeed(env).then((r) => console.log('wordfence feed refresh', JSON.stringify(r))));
+  },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
       if (url.pathname === '/api/releases') {
-        return json(await getReleases(ctx));
+        const rel = await getReleases(ctx);
+        const wf = await feedMeta(env);
+        return json({ ...rel, wordpressFeed: wf ? { updatedAt: wf.updatedAt, vulnerabilities: wf.vulnerabilities } : null });
       }
       if (url.pathname === '/api/check') {
         if (await rateLimited(env, 'RL_CHECK', request)) return tooMany('RL_CHECK');
@@ -946,7 +953,7 @@ const MCP_TOOLS = [
     name: 'check_php_version',
     title: 'Check PHP version of websites',
     description:
-      'Passively checks one or more websites from a single homepage response: PHP version vs php.net releases (verdicts: latest, outdated, eol, distro, partial, php-no-version, not-php, no-signal, unreachable), security headers and cookie flags graded A-F, JavaScript libraries with known vulnerabilities (Retire.js), WordPress core and plugin versions vs wordpress.org, and web server versions vs endoflife.date. Returns evidence, findings and a ready-made check/confirm/fix prompt per site. Max 20 targets per call.',
+      'Passively checks one or more websites from a single homepage response: PHP version vs php.net releases (verdicts: latest, outdated, eol, distro, partial, php-no-version, not-php, no-signal, unreachable), security headers and cookie flags graded A-F, JavaScript libraries with known vulnerabilities (Retire.js), WordPress core, plugin and theme vulnerabilities (Wordfence Intelligence feed) and freshness vs wordpress.org, and web server versions vs endoflife.date. Returns evidence, findings and a ready-made check/confirm/fix prompt per site. Max 20 targets per call.',
     inputSchema: {
       type: 'object',
       properties: {

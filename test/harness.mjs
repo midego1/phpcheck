@@ -1,4 +1,5 @@
 // Verdict tests: stub fetch for fake hosts (php.net/endoflife.date go through for real), call the worker, assert verdicts. Run: npm test
+let fail = 0;
 const realFetch = globalThis.fetch;
 globalThis.caches = { default: { match: async () => null, put: async () => {} } };
 const canned = {
@@ -27,13 +28,39 @@ globalThis.fetch = async (input, init = {}) => {
   if (init.method === 'GET' && c.get) c = c.get;
   return new Response(init.method === 'GET' ? c.body || '' : null, { status: c.status, headers: c.headers });
 };
+// Wordfence matcher unit test with an in-memory KV
+{
+  const wf = await import(new URL('../src/wordfence.js', import.meta.url));
+  const store = new Map();
+  const kv = { get: async (k) => store.has(k) ? JSON.parse(store.get(k)) : null, put: async (k, v) => { store.set(k, v); } };
+  const feed = { 'u1': { id: 'u1', title: 'CF7 XSS', informational: false, published: '2024-01-01 00:00:00', references: ['https://www.wordfence.com/threat-intel/vulnerabilities/x'], cve: 'CVE-2024-0001', cvss: { score: 6.1, rating: 'Medium' },
+      software: [{ type: 'plugin', slug: 'contact-form-7', name: 'Contact Form 7', affected_versions: { '* - 5.1.5': { from_version: '*', from_inclusive: true, to_version: '5.1.5', to_inclusive: true } }, patched: true, patched_versions: ['5.1.6'] }] },
+    'u2': { id: 'u2', title: 'Core SSRF', informational: false, published: '2022-01-01 00:00:00', references: [], software: [{ type: 'core', slug: 'wordpress', affected_versions: { '6.0 - 6.0.2': { from_version: '6.0', from_inclusive: true, to_version: '6.0.2', to_inclusive: true } }, patched: true, patched_versions: ['6.0.3'] }] },
+    'u3': { id: 'u3', title: 'Info only', informational: true, software: [{ type: 'plugin', slug: 'contact-form-7', affected_versions: { '*': { from_version: '*', from_inclusive: true, to_version: '*', to_inclusive: true } }, patched: false, patched_versions: [] }] } };
+  const realFetch2 = globalThis.fetch;
+  globalThis.fetch = async (u, init) => /wordfence\.com\/api/.test(String(u)) ? new Response(JSON.stringify(feed), { status: 200 }) : realFetch2(u, init);
+  const r = await wf.refreshFeed({ WORDFENCE_KEY: 'x', VULN_DB: kv });
+  globalThis.fetch = realFetch2;
+  const t1 = await wf.lookup({ VULN_DB: kv }, 'plugin', 'contact-form-7', '5.0.0');
+  const t2 = await wf.lookup({ VULN_DB: kv }, 'plugin', 'contact-form-7', '5.1.6');
+  const t3 = await wf.lookup({ VULN_DB: kv }, 'core', 'wordpress', '6.0.1');
+  const t4 = await wf.lookup({ VULN_DB: kv }, 'core', 'wordpress', '6.0.3');
+  const t5 = await wf.lookup({ VULN_DB: kv }, 'plugin', 'contact-form-7', null);
+  for (const [name, ok] of [
+    ['wordfence: feed stored', r.ok && r.entries === 3],
+    ['wordfence: cf7 5.0.0 affected, informational excluded', t1.length === 1 && t1[0].fixedIn === '5.1.6' && t1[0].cve === 'CVE-2024-0001'],
+    ['wordfence: cf7 5.1.6 clean', t2.length === 0],
+    ['wordfence: core 6.0.1 affected', t3.length === 1],
+    ['wordfence: core 6.0.3 clean', t4.length === 0],
+    ['wordfence: unknown version reports history unconfirmed', t5.length === 1 && t5[0].confirmed === false],
+  ]) { if (!ok) fail++; console.log(ok ? 'PASS' : 'FAIL', name); }
+}
 const mod = await import(new URL("../src/index.js", import.meta.url));
 const req = new Request('http://x/api/check', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ targets: Object.keys(canned).filter(h => h !== 'www.redirect.example') }) });
 const res = await mod.default.fetch(req, { ASSETS: { fetch: () => new Response('') } }, { waitUntil() {} });
 const data = await res.json();
 if (data.error) { console.log('ERROR', data.error); process.exit(1); }
 const expect = { 'latest.example': 'latest', 'outdated.example': 'outdated', 'eol.example': 'eol', 'distro.example': 'distro', 'partial.example': 'partial', 'cookie.example': 'php-no-version', 'redirect.example': 'outdated', 'headonly.example': 'latest', 'body.example': 'php-no-version', 'old.example': 'eol', 'nextjs.example': 'not-php', 'cdnonly.example': 'no-signal', 'wp.example': 'eol', 'secure.example': 'no-signal' };
-let fail = 0;
 for (const r of data.results) {
   const ok = r.verdict === expect[r.input];
   if (!ok) fail++;
