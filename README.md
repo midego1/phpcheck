@@ -1,6 +1,6 @@
 # PHP Check
 
-Live: https://phpcheck.midego.net · by [@midego1](https://x.com/midego1) · MIT
+Live: https://phpcheck.midego.net · by [@midego1](https://x.com/midego1) · MIT · [![ci](https://github.com/midego1/phpcheck/actions/workflows/ci.yml/badge.svg)](https://github.com/midego1/phpcheck/actions/workflows/ci.yml)
 
 Cloudflare Worker + one static page. Paste domains, get back which PHP version each site
 exposes, whether that is the latest patch for its branch, branch support status, applicable
