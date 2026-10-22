@@ -133,7 +133,9 @@ export function analyzeHeaders(headers, setCookies, isHttps) {
   }
   score = Math.max(0, score);
   const grade = score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 55 ? 'C' : score >= 35 ? 'D' : 'F';
-  return { grade, score, checks, cookies: cookies.length };
+  const counts = { ok: 0, info: 0, warn: 0, bad: 0 };
+  for (const c of checks) counts[c.status] = (counts[c.status] || 0) + 1;
+  return { grade, score, counts, checks, cookies: cookies.length };
 }
 
 function parseCookie(raw) {
@@ -373,9 +375,11 @@ export async function enrichSecurity(result, body, setCookies, env, ctx) {
   result.security = analyzeHeaders(result.headers, setCookies, isHttps);
   const bad = result.security.checks.filter((c) => c.status === 'bad');
   const warn = result.security.checks.filter((c) => c.status === 'warn');
-  if (bad.length) f('bad', `Security headers grade ${result.security.grade}: ${bad.map((c) => c.name).join(', ')} missing or unsafe.`);
-  else if (warn.length) f('warn', `Security headers grade ${result.security.grade}: ${warn.map((c) => c.name).join(', ')} could be tightened.`);
-  else f('ok', `Security headers grade ${result.security.grade}.`);
+  const sc = result.security;
+  const tally = `${sc.score}/100, ${sc.counts.bad} bad, ${sc.counts.warn} warn, ${sc.counts.ok} ok`;
+  if (bad.length) f('bad', `Security headers grade ${sc.grade} (${tally}): ${bad.map((c) => c.name).join(', ')} missing or unsafe.`);
+  else if (warn.length) f('warn', `Security headers grade ${sc.grade} (${tally}): ${warn.map((c) => c.name).join(', ')} could be tightened.`);
+  else f('ok', `Security headers grade ${sc.grade} (${tally}).`);
 
   const [libs, cms, server] = await Promise.all([
     findLibraries(body, result.http.finalUrl, ctx),
