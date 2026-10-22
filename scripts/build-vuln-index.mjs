@@ -50,9 +50,22 @@ async function loadFeed() {
   if (fromFile) return JSON.parse(await readFile(fromFile, 'utf8'));
   const key = process.env.WORDFENCE_KEY;
   if (!key) throw new Error('WORDFENCE_KEY is not set');
-  const res = await fetch(FEED_URL, { headers: { authorization: `Bearer ${key}`, 'user-agent': 'php-version-check feed builder (+https://phpcheck.midego.net)', accept: 'application/json' } });
-  if (!res.ok) throw new Error(`Wordfence feed returned HTTP ${res.status}`);
-  return res.json();
+  const headers = { authorization: `Bearer ${key}`, 'user-agent': 'php-version-check feed builder (+https://phpcheck.midego.net)', accept: 'application/json' };
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const res = await fetch(FEED_URL, { headers });
+    if (res.ok) return res.json();
+    if (res.status === 429 && attempt === 1) {
+      // Wordfence allows roughly one download per 30 minutes per key. Wait as instructed, then retry once.
+      const ra = res.headers.get('retry-after');
+      let waitSec = ra && /^\d+$/.test(ra) ? Number(ra) : ra ? Math.ceil((Date.parse(ra) - Date.now()) / 1000) : 31 * 60;
+      waitSec = Math.min(Math.max(waitSec, 60), 40 * 60);
+      console.log(`Wordfence returned 429; waiting ${waitSec}s before retrying once`);
+      await new Promise((r) => setTimeout(r, waitSec * 1000));
+      continue;
+    }
+    throw new Error(`Wordfence feed returned HTTP ${res.status}`);
+  }
+  throw new Error('Wordfence feed still rate limited after waiting');
 }
 
 const feed = await loadFeed();
