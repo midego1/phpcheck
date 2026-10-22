@@ -1,3 +1,5 @@
+import { lookup as wfLookup } from './wordfence.js';
+
 /**
  * Security enrichment for a checked site. Everything here works on the response that
  * checkTarget already fetched (headers + first 64 KB of HTML); the only extra requests go to
@@ -263,11 +265,11 @@ function mostCommon(arr) {
 export async function enrichCms(cms, env, ctx) {
   if (!cms) return null;
   const out = { ...cms, latest: null, status: 'unknown', advisories: [] };
+  let feedUsed = false;
   if (cms.name === 'WordPress') {
     const core = await cachedJson(ctx, 'wp-core', WP_CORE_URL, 21600);
     out.latest = core?.offers?.[0]?.version || null;
     if (cms.version && out.latest) out.status = cmpVer(cms.version, out.latest) >= 0 ? 'latest' : (cms.version.split('.').slice(0, 2).join('.') === out.latest.split('.').slice(0, 2).join('.') ? 'outdated-patch' : 'outdated');
-    const token = env?.WPSCAN_TOKEN;
     out.plugins = await Promise.all(cms.plugins.map(async (p) => {
       const info = await cachedJson(ctx, `wp-plugin-${p.slug}`, `https://api.wordpress.org/plugins/info/1.0/${encodeURIComponent(p.slug)}.json?fields=-sections,-screenshots,-banners,-icons,-ratings,-tags,-contributors,-description`, 86400);
       const r = { ...p, latest: null, status: 'unknown', lastUpdated: null, testedUpTo: null, vulnerabilities: [] };
@@ -280,26 +282,20 @@ export async function enrichCms(cms, env, ctx) {
       } else if (info && info.__status === 404) {
         r.status = 'not-in-directory';
       }
-      if (token) {
-        const ws = await cachedJson(ctx, `wpscan-plugin-${p.slug}`, `https://wpscan.com/api/v3/plugins/${encodeURIComponent(p.slug)}`, 43200, { authorization: `Token token=${token}` });
-        const entry = ws && !ws.__status && !ws.__error ? ws[p.slug] : null;
-        if (entry && Array.isArray(entry.vulnerabilities)) {
-          r.vulnerabilities = entry.vulnerabilities
-            .filter((v) => !p.version || !v.fixed_in || cmpVer(p.version, v.fixed_in) < 0)
-            .map((v) => ({ title: v.title, fixedIn: v.fixed_in || null, cve: v.references?.cve || [], published: v.published_date || null }))
-            .slice(0, 10);
-        }
-      }
+      const vulns = await wfLookup(env, 'plugin', p.slug, p.version);
+      if (vulns) { r.vulnerabilities = vulns; feedUsed = true; }
       return r;
     }));
-    if (token && cms.version) {
-      const ws = await cachedJson(ctx, `wpscan-core-${cms.version}`, `https://wpscan.com/api/v3/wordpresses/${cms.version.replace(/\./g, '')}`, 43200, { authorization: `Token token=${token}` });
-      const entry = ws && !ws.__status && !ws.__error ? ws[cms.version] : null;
-      if (entry && Array.isArray(entry.vulnerabilities)) {
-        out.advisories = entry.vulnerabilities.filter((v) => !v.fixed_in || cmpVer(cms.version, v.fixed_in) < 0).map((v) => ({ title: v.title, fixedIn: v.fixed_in || null, cve: v.references?.cve || [] })).slice(0, 10);
-      }
+    if (cms.version) {
+      const core = await wfLookup(env, 'core', 'wordpress', cms.version);
+      if (core) { out.advisories = core; feedUsed = true; }
     }
-    out.wpscan = !!token;
+    if (cms.theme) {
+      // No theme version is visible in HTML, so this is the theme's vulnerability history, unconfirmed.
+      const tv = await wfLookup(env, 'theme', cms.theme, null);
+      if (tv) { out.themeVulnerabilities = tv.slice(0, 5); feedUsed = true; }
+    }
+    out.vulnFeed = feedUsed ? 'wordfence' : null;
   } else if (cms.name === 'Drupal' && cms.version) {
     const eol = await cachedJson(ctx, 'eol-drupal', 'https://endoflife.date/api/drupal.json', 21600);
     if (Array.isArray(eol)) {
@@ -403,14 +399,18 @@ export async function enrichSecurity(result, body, setCookies, env, ctx) {
       else if (cms.status === 'outdated-patch') f('bad', `${v} is behind the current release ${cms.latest}; minor releases are security releases, update now.`);
       else if (cms.status === 'outdated') f('bad', `${v} is behind the current release ${cms.latest}.`);
       else f('info', `${v}; latest is ${cms.latest || 'unknown'}.`);
-      if (cms.advisories?.length) f('bad', `WordPress core has ${cms.advisories.length} published vulnerabilit${cms.advisories.length === 1 ? 'y' : 'ies'} for this version (WPScan).`);
+      if (cms.advisories?.length) f('bad', `WordPress ${cms.version} has ${cms.advisories.length} published vulnerabilit${cms.advisories.length === 1 ? 'y' : 'ies'}: ${cms.advisories[0].title}${cms.advisories[0].fixedIn ? ` (fixed in ${cms.advisories[0].fixedIn})` : ''}.`);
       const outdated = cms.plugins.filter((p) => p.status === 'outdated');
       const vulnerable = cms.plugins.filter((p) => p.vulnerabilities?.length);
       const unknown = cms.plugins.filter((p) => p.status === 'not-in-directory');
-      if (vulnerable.length) f('bad', `${vulnerable.length} plugin${vulnerable.length === 1 ? '' : 's'} with published vulnerabilities: ${vulnerable.map((p) => `${p.slug} ${p.version || ''}`).join(', ')}.`);
+      const confirmedVuln = vulnerable.filter((p) => p.version);
+      const unconfirmed = vulnerable.filter((p) => !p.version);
+      if (confirmedVuln.length) f('bad', `${confirmedVuln.length} plugin${confirmedVuln.length === 1 ? '' : 's'} with published vulnerabilities for the installed version: ${confirmedVuln.map((p) => `${p.slug} ${p.version} (${p.vulnerabilities[0].title}${p.vulnerabilities[0].fixedIn ? ', fixed in ' + p.vulnerabilities[0].fixedIn : ''})`).join('; ')}.`);
+      if (unconfirmed.length) f('warn', `${unconfirmed.length} plugin${unconfirmed.length === 1 ? '' : 's'} with a vulnerability history but no visible version: ${unconfirmed.map((p) => p.slug).join(', ')}. Confirm the installed version from inside.`);
+      if (cms.themeVulnerabilities?.length) f('warn', `Theme ${cms.theme} has ${cms.themeVulnerabilities.length} published vulnerabilit${cms.themeVulnerabilities.length === 1 ? 'y' : 'ies'} in its history (${cms.themeVulnerabilities[0].title}${cms.themeVulnerabilities[0].fixedIn ? ', fixed in ' + cms.themeVulnerabilities[0].fixedIn : ''}); the theme version is not visible, confirm it from inside.`);
       if (outdated.length) f('warn', `${outdated.length} of ${cms.plugins.length} visible plugins outdated: ${outdated.slice(0, 5).map((p) => `${p.slug} ${p.version} → ${p.latest}`).join(', ')}${outdated.length > 5 ? ', …' : ''}.`);
       else if (cms.plugins.length) f('ok', `${cms.plugins.length} visible plugin${cms.plugins.length === 1 ? '' : 's'}, all current${unknown.length ? ` (${unknown.length} not in the wordpress.org directory, premium or custom)` : ''}.`);
-      if (!cms.wpscan) f('info', 'Plugin CVE lookup is off (no WPScan token configured); only version freshness is checked.');
+      if (!cms.vulnFeed) f('info', 'Vulnerability feed not loaded yet; only version freshness is checked.');
     } else {
       const v = cms.version ? `${cms.name} ${cms.version}` : `${cms.name} (version hidden)`;
       if (cms.status === 'eol') f('bad', `${v} is end-of-life; latest is ${cms.latest}.`);

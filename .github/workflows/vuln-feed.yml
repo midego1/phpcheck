@@ -1,0 +1,30 @@
+name: vuln-feed
+# Rebuilds the WordPress vulnerability index from the Wordfence Intelligence feed once a day and
+# deploys the Worker from main with the fresh index as static assets.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+concurrency: vuln-feed
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Build vulnerability index
+        env:
+          WORDFENCE_KEY: ${{ secrets.WORDFENCE_KEY }}
+        run: node scripts/build-vuln-index.mjs
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 3a28d4e756f4b9649c2e82c48544783d
+        run: npx wrangler deploy
