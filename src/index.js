@@ -747,18 +747,18 @@ async function apiGet(url, token) {
 }
 
 async function importCloudflare(token) {
-  const verify = await apiGet('https://api.cloudflare.com/client/v4/user/tokens/verify', token);
-  if (verify.status === 401 || verify.status === 403 || (verify.data && verify.data.success === false)) {
-    const msg = verify.data?.errors?.map((e) => e.message).join('; ') || `HTTP ${verify.status}`;
-    return { error: `Cloudflare rejected the token: ${msg}. Create one at dash.cloudflare.com/profile/api-tokens with permission "Zone · Zone · Read" for all zones.` };
-  }
+  // No separate verify call: /user/tokens/verify only accepts user-owned tokens, and
+  // account-owned tokens are just as valid for listing zones. The zones call reports errors itself.
   const domains = [];
   const accounts = new Set();
   for (let page = 1; page <= IMPORT_MAX_PAGES; page++) {
-    const r = await apiGet(`https://api.cloudflare.com/client/v4/zones?per_page=50&page=${page}&status=active`, token);
+    const r = await apiGet(`https://api.cloudflare.com/client/v4/zones?per_page=50&page=${page}`, token);
     if (!r.data || r.data.success === false) {
       const msg = r.data?.errors?.map((e) => e.message).join('; ') || `HTTP ${r.status}`;
-      return { error: `Could not list zones: ${msg}. The token needs "Zone · Zone · Read".` };
+      const hint = r.status === 400 || r.status === 401 || r.status === 403
+        ? ' Create a token at dash.cloudflare.com → My Profile → API Tokens (or Account → API Tokens) with permission "Zone · Zone · Read" for all zones, and paste it without surrounding spaces.'
+        : '';
+      return { error: `Cloudflare could not list zones: ${msg}.${hint}` };
     }
     for (const z of r.data.result || []) {
       domains.push({ domain: z.name, source: 'cloudflare', account: z.account?.name || null, status: z.status, plan: z.plan?.name || null });
