@@ -26,6 +26,7 @@
     --code:#0f1113;--selection:#24414c;
   }}
   *{box-sizing:border-box}
+  [hidden]{display:none!important}
   ::selection{background:var(--selection)}
   html{scroll-behavior:smooth}
   body{margin:0;font:16px/1.5 var(--sans);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
@@ -146,7 +147,7 @@
 <main class="wrap">
   <div class="intro">
     <h1>Check the PHP patch level of any domain</h1>
-    <p>Reads the version a site exposes, compares it with the releases on php.net, and writes the check-and-fix prompt for your agent. One request per domain, up to 100 at a time.</p>
+    <p>Reads the version a site exposes, compares it with the releases on php.net, and writes the check-and-fix prompt for your agent. One request per domain, up to 300 at a time, or import every domain from a Cloudflare or Vercel account.</p>
   </div>
 
   <div class="work">
@@ -327,7 +328,7 @@ function parseTargets() {
   const seen = new Set();
   return $('#targets').value.split(/[\n,;]+/).map((s) => s.trim()).filter((s) => s && !seen.has(s.toLowerCase()) && seen.add(s.toLowerCase()));
 }
-document.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => {
+document.querySelectorAll('[data-ex]').forEach((c) => c.addEventListener('click', () => {
   const ta = $('#targets'); const cur = ta.value.trim();
   ta.value = (cur ? cur + '\n' : '') + c.dataset.ex; ta.focus();
 }));
