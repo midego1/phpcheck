@@ -39,7 +39,22 @@
   h2{font-size:22px;margin:0 0 6px}
   h3{font-size:16px;margin:0 0 4px}
   p{margin:0 0 10px}
-  .wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:0 48px;align-items:start}
+  .col-main{min-width:0}
+  .side{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;padding:24px 0 24px 24px;border-left:1px solid var(--line);font-size:14px;scrollbar-width:thin}
+  .side section{margin:0 0 22px;padding:0 0 18px;border-bottom:1px solid var(--line)}
+  .side section:last-child{border-bottom:0;margin-bottom:0}
+  .side h2{font-size:15px;margin:0 0 8px}
+  .side-list{margin:0;padding-left:18px;color:var(--text2)}
+  .side-list li{margin:0 0 4px}
+  .side-note{color:var(--text2);margin:10px 0 0;font-size:13.5px}
+  .side-note b{color:var(--text)}
+  .side table{font-size:13px;margin:0}
+  .side th,.side td{padding:5px 8px 5px 0}
+  .side pre{font-size:12px;padding:10px;margin:0 0 8px}
+  .side .legend dl,.side.legend dl{gap:5px 10px}
+  .side dd{font-size:13px}
 
   header.top{border-bottom:1px solid var(--line)}
   header.top .wrap{display:flex;align-items:center;gap:16px;height:52px}
@@ -49,7 +64,7 @@
   header.top nav a{color:var(--text2);text-decoration:none}
   header.top nav a:hover{color:var(--text);text-decoration:underline}
 
-  .intro{padding:40px 0 20px;max-width:720px}
+  .intro{padding:28px 0 18px;max-width:720px}
   .intro h1{font-size:30px;line-height:1.2;margin:0 0 10px}
   .intro p{color:var(--text2);font-size:17px;margin:0}
 
@@ -117,7 +132,7 @@
   .ai img{width:15px;height:15px;display:block}
   .ai .mono-icon{display:block;width:15px;height:15px;background:var(--text);-webkit-mask:var(--icon) center/contain no-repeat;mask:var(--icon) center/contain no-repeat}
 
-  section{margin-top:64px}
+  section{margin-top:40px}
   section .lead{color:var(--text2);max-width:680px;margin-bottom:18px}
   .cols{display:grid;grid-template-columns:1fr 1fr;gap:28px 40px}
   .cols dl{margin:0}
@@ -125,15 +140,16 @@
   dd{margin:2px 0 0;color:var(--text2)}
   .note{border-left:2px solid var(--warn);padding:2px 0 2px 14px;margin:20px 0 0;max-width:680px;color:var(--text2)}
   .note b{color:var(--text)}
-  .prompts{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
+  .prompts{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
   .prompt p{color:var(--text2);font-size:15px}
   .prompt pre{max-height:240px}
   .legend dl{display:grid;grid-template-columns:max-content 1fr;gap:8px 16px;margin:0}
   .legend dt{margin:0}.legend dd{margin:0;color:var(--text2)}
   .releases-wrap{overflow-x:auto}
-  footer{margin:72px 0 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-wrap:wrap;gap:6px 24px}
+  footer{margin:40px 0 32px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-wrap:wrap;gap:6px 24px}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--ink-fg);padding:8px 14px;border-radius:4px;font-size:14px;opacity:0;transition:opacity .15s ease-out;pointer-events:none;z-index:50}
   .toast.show{opacity:1}
+  @media(max-width:1000px){.layout{grid-template-columns:1fr}.side{position:static;max-height:none;overflow:visible;border-left:0;padding:8px 0 0;border-top:1px solid var(--line);margin-top:8px}.prompts{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:760px){.cols,.prompts{grid-template-columns:1fr}.row .head{grid-template-columns:1fr auto}.row .meta{text-align:left;grid-column:1/-1}.row .ver{grid-column:1/-1}header.top nav{display:none}.intro{padding-top:28px}.intro h1{font-size:26px}}
   @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}html{scroll-behavior:auto}}
 </style>
@@ -144,108 +160,102 @@
   <nav><a href="#how">How it works</a><a href="#releases">Releases</a><a href="#prompts">Agent prompts</a><a href="#api">API &amp; MCP</a><a href="https://github.com/midego1/phpcheck" target="_blank" rel="noopener">GitHub</a></nav>
 </div></header>
 
-<main class="wrap">
-  <div class="intro">
-    <h1>Check the PHP patch level of any domain</h1>
-    <p>Reads the version a site exposes, compares it with the releases on php.net, and writes the check-and-fix prompt for your agent. One request per domain, up to 300 at a time, or import every domain from a Cloudflare or Vercel account.</p>
-  </div>
-
-  <div class="work">
-    <label class="lbl" for="targets">Domains, one per line</label>
-    <textarea id="targets" placeholder="example.com&#10;https://shop.example.org/&#10;wordpress.org"></textarea>
-    <div class="toolbar">
-      <button class="btn primary" id="run" data-umami-event="check">Check domains</button>
-      <button class="btn" id="clear">Clear</button>
-      <span class="status" id="status"></span>
-      <span style="flex:1"></span>
-      <button class="btn sm" id="csv" disabled data-umami-event="export-csv">Download CSV</button>
-      <button class="btn sm" id="jsonx" disabled data-umami-event="export-json">Download JSON</button>
+<main class="wrap layout">
+  <div class="col-main">
+    <div class="intro">
+      <h1>Check the PHP patch level of any domain</h1>
+      <p>Reads the version a site exposes, compares it with the releases on php.net, and writes the check-and-fix prompt for your agent. Up to 300 domains at a time, or import every domain from a Cloudflare or Vercel account.</p>
     </div>
-    <div class="examples">Examples: <button class="chip" data-ex="wordpress.org">wordpress.org</button><button class="chip" data-ex="php.net">php.net</button><button class="chip" data-ex="laravel.com">laravel.com</button><button class="chip" data-ex="drupal.org">drupal.org</button><button class="chip" data-ex="github.com">github.com</button>
-      <span style="flex:1"></span>
-      <span>Import all domains from</span> <button class="chip" data-import="cloudflare">Cloudflare</button> <button class="chip" data-import="vercel">Vercel</button></div>
-    <form id="import" class="import" hidden autocomplete="off">
-      <div class="import-row">
-        <label class="lbl" for="imp-token" id="imp-label">Cloudflare API token</label>
-        <input id="imp-token" type="password" autocomplete="off" spellcheck="false" placeholder="paste token">
-        <label class="lbl" for="imp-team" id="imp-team-label" hidden>Team slug or ID (optional)</label>
-        <input id="imp-team" type="text" autocomplete="off" spellcheck="false" placeholder="my-team" hidden>
-        <button class="btn sm" type="submit" id="imp-go">Import domains</button>
-        <button class="btn sm link" type="button" id="imp-cancel">Cancel</button>
+
+    <div class="work">
+      <label class="lbl" for="targets">Domains, one per line</label>
+      <textarea id="targets" placeholder="example.com&#10;https://shop.example.org/&#10;wordpress.org"></textarea>
+      <div class="toolbar">
+        <button class="btn primary" id="run" data-umami-event="check">Check domains</button>
+        <button class="btn" id="clear">Clear</button>
+        <span class="status" id="status"></span>
+        <span style="flex:1"></span>
+        <button class="btn sm" id="csv" disabled data-umami-event="export-csv">Download CSV</button>
+        <button class="btn sm" id="jsonx" disabled data-umami-event="export-json">Download JSON</button>
       </div>
-      <p class="status" id="imp-help"></p>
-    </form>
-    <progress id="prog" value="0" max="1" hidden></progress>
+      <div class="examples">Examples: <button class="chip" data-ex="wordpress.org">wordpress.org</button><button class="chip" data-ex="php.net">php.net</button><button class="chip" data-ex="laravel.com">laravel.com</button><button class="chip" data-ex="drupal.org">drupal.org</button><button class="chip" data-ex="github.com">github.com</button>
+        <span style="flex:1"></span>
+        <span>Import all domains from</span> <button class="chip" data-import="cloudflare">Cloudflare</button> <button class="chip" data-import="vercel">Vercel</button></div>
+      <form id="import" class="import" hidden autocomplete="off">
+        <div class="import-row">
+          <label class="lbl" for="imp-token" id="imp-label">Cloudflare API token</label>
+          <input id="imp-token" type="password" autocomplete="off" spellcheck="false" placeholder="paste token">
+          <label class="lbl" for="imp-team" id="imp-team-label" hidden>Team slug or ID (optional)</label>
+          <input id="imp-team" type="text" autocomplete="off" spellcheck="false" placeholder="my-team" hidden>
+          <button class="btn sm" type="submit" id="imp-go">Import domains</button>
+          <button class="btn sm link" type="button" id="imp-cancel">Cancel</button>
+        </div>
+        <p class="status" id="imp-help"></p>
+      </form>
+      <progress id="prog" value="0" max="1" hidden></progress>
+    </div>
+
+    <div id="stats" class="summary" hidden></div>
+    <div id="results" class="results" hidden></div>
+
+    <section id="prompts">
+      <h2>Prompts for agents</h2>
+      <p class="lead">Every result has its own prompt with the observations filled in. These are the generic templates behind it. Replace <code>{{domain}}</code>, or open one directly in your assistant.</p>
+      <div class="prompts" id="prompt-grid"></div>
+    </section>
+
+    <footer>
+      <span>Only the homepage is requested, with an identifying User-Agent. Private and local hosts are refused.</span>
+      <span>Rate limits per IP: 30 checks, 10 imports and 60 MCP calls per minute.</span>
+      <span>Open source: <a href="https://github.com/midego1/phpcheck" target="_blank" rel="noopener">github.com/midego1/phpcheck</a> (MIT)</span>
+      <span>By <a href="https://x.com/midego1" target="_blank" rel="noopener">@midego1</a> · <a href="https://midego.net" target="_blank" rel="noopener">midego.net</a></span>
+    </footer>
   </div>
 
-  <div id="stats" class="summary" hidden></div>
-  <div id="results" class="results" hidden></div>
+  <aside class="side">
+    <section id="releases">
+      <h2>Current PHP releases</h2>
+      <div id="releases-box"><span class="status">Loading from php.net…</span></div>
+      <p class="side-note"><b>21 Oct 2026:</b> security release fixing CVE-2026-109618 and CVE-2026-109619, both CVSS 9.2 remote code execution. Anything below the versions above is affected. <a href="https://www.php.net/archive/2026.php#2026-10-21-1" target="_blank" rel="noopener">php.net</a></p>
+    </section>
 
-  <section id="how">
-    <h2>How it works</h2>
-    <p class="lead">One passive look at the homepage. Nothing is crawled, probed or exploited; the tool reports what it saw and says so when it saw nothing.</p>
-    <div class="cols">
+    <section id="how">
+      <h2>How it works</h2>
+      <ol class="side-list">
+        <li>One HEAD request to the homepage, GET when needed, up to five redirects.</li>
+        <li>Version read from <code>X-Powered-By</code> or <code>Server</code>; PHPSESSID, CMS markers and <code>.php</code> links tell "PHP, version hidden" from "no PHP".</li>
+        <li>Compared with php.net and endoflife.date, cached six hours.</li>
+        <li>Each result gets a check, confirm, fix and verify prompt for your agent.</li>
+      </ol>
+      <p class="side-note"><b>Most sites hide the version on purpose.</b> PHP only sends <code>X-Powered-By</code> when <code>expose_php = On</code>; good hosts, Docker images and CDNs turn it off or strip it. "Version hidden" is expected, not a failed check: the patch level is then confirmed from inside, which is what the prompt walks through.</p>
+    </section>
+
+    <section id="legend" class="legend">
+      <h2>Verdicts</h2>
       <dl>
-        <dt>1. One request</dt><dd>A HEAD request to the homepage, then a GET when HEAD is refused or shows nothing. Up to five redirects are followed, with an identifying User-Agent.</dd>
-        <dt>2. Read the headers</dt><dd>PHP announces itself as <code>X-Powered-By: PHP/8.4.26</code>, sometimes inside <code>Server</code>. PHPSESSID cookies, WordPress, Drupal and Laravel markers and links to <code>.php</code> files separate "PHP, version hidden" from "no PHP at all".</dd>
+        <dt><span class="verdict v-latest">latest</span></dt><dd>Newest patch on its branch.</dd>
+        <dt><span class="verdict v-outdated">outdated</span></dt><dd>Same branch, older patch.</dd>
+        <dt><span class="verdict v-eol">EOL</span></dt><dd>Branch gets no fixes any more.</dd>
+        <dt><span class="verdict v-distro">distro build</span></dt><dd>Debian/Ubuntu/RHEL package; fixes may be backported. Check inside.</dd>
+        <dt><span class="verdict v-partial">partial</span></dt><dd>Only "PHP/8.x" exposed.</dd>
+        <dt><span class="verdict v-php-no-version">PHP, hidden</span></dt><dd>PHP markers, no version. Check inside.</dd>
+        <dt><span class="verdict v-no-signal">no signal</span></dt><dd>Nothing PHP-related seen.</dd>
+        <dt><span class="verdict v-unreachable">unreachable</span></dt><dd>No HTTP response.</dd>
       </dl>
-      <dl>
-        <dt>3. Compare with php.net</dt><dd>Release data is fetched live from php.net and endoflife.date: latest patch per branch, active or security-only support, end-of-life dates, and the known critical advisories.</dd>
-        <dt>4. Hand it to an agent</dt><dd>Each result comes with a prompt that lists the evidence, the current releases and the check, confirm, fix and verify steps. Open it in Claude, ChatGPT, Grok, Gemini or Perplexity.</dd>
-      </dl>
-    </div>
-    <p class="note"><b>Most sites hide the version on purpose.</b> PHP only sends <code>X-Powered-By</code> when <code>expose_php = On</code>. Well-configured hosts, Docker images, managed platforms and CDNs turn it off or strip it, so most results read "PHP, version hidden" or "no signal". That is not a failed check: the patch level can then only be confirmed from inside the server, which is what the agent prompt walks through. When a version is exposed it is reliable, and a small finding in itself.</p>
-  </section>
+    </section>
 
-  <section id="releases">
-    <h2>Current PHP releases</h2>
-    <p class="lead">Supported branches, fetched from php.net and endoflife.date and cached for six hours. Everything below 8.2 is end-of-life.</p>
-    <div class="releases-wrap" id="releases-box"><span class="status">Loading from php.net…</span></div>
-  </section>
+    <section id="api">
+      <h2>API &amp; MCP</h2>
+      <pre>GET  /api/releases
+GET  /api/check?target=example.com
+POST /api/check {"targets":[…]}
+POST /api/import {"provider","token"}
 
-  <section id="prompts">
-    <h2>Prompts for agents</h2>
-    <p class="lead">Every result has its own prompt with the observations filled in. These are the generic templates behind it. Replace <code>{{domain}}</code>, or open one directly in your assistant.</p>
-    <div class="prompts" id="prompt-grid"></div>
-  </section>
-
-  <section id="legend" class="legend">
-    <h2>What the verdicts mean</h2>
-    <dl>
-      <dt><span class="verdict v-latest">latest</span></dt><dd>Exposed version equals the newest patch on its branch.</dd>
-      <dt><span class="verdict v-outdated">outdated</span></dt><dd>Same branch, older patch. When the newest patch is a security release, treat as urgent.</dd>
-      <dt><span class="verdict v-eol">EOL</span></dt><dd>Branch no longer receives fixes at all.</dd>
-      <dt><span class="verdict v-distro">distro build</span></dt><dd>Debian, Ubuntu or RHEL package. The number lags upstream on purpose; backported fixes may be present. Needs an inside check.</dd>
-      <dt><span class="verdict v-partial">partial</span></dt><dd>Only "PHP/8.x" exposed, no patch level.</dd>
-      <dt><span class="verdict v-php-no-version">PHP, version hidden</span></dt><dd>PHP markers present but no version. Good hygiene; only an inside check gives the patch level.</dd>
-      <dt><span class="verdict v-no-signal">no signal</span></dt><dd>Nothing PHP-related observed. Hidden, not PHP, or stripped by a CDN.</dd>
-      <dt><span class="verdict v-unreachable">unreachable</span></dt><dd>No HTTP response over https or http.</dd>
-    </dl>
-  </section>
-
-  <section id="api">
-    <h2>API</h2>
-    <p class="lead">Same engine, JSON out. No key needed, 20 targets per request.</p>
-    <pre>GET  https://phpcheck.midego.net/api/releases
-POST https://phpcheck.midego.net/api/import    {"provider": "cloudflare" | "vercel", "token": "…", "teamId": "optional"}
-GET  https://phpcheck.midego.net/api/check?target=example.com&amp;target=example.org
-POST https://phpcheck.midego.net/api/check   {"targets": ["example.com", "example.org"]}</pre>
-    <h3 style="margin-top:24px">MCP server</h3>
-    <p class="lead">The same two operations as MCP tools (<code>check_php_version</code>, <code>php_releases</code>) over Streamable HTTP, so an agent can call them directly.</p>
-    <pre>Endpoint      https://phpcheck.midego.net/mcp
-
-Claude Code   claude mcp add --transport http phpcheck https://phpcheck.midego.net/mcp
-Cursor / others
-{ "mcpServers": { "phpcheck": { "url": "https://phpcheck.midego.net/mcp" } } }</pre>
-  </section>
-
-  <footer>
-    <span>Only the homepage is requested, with an identifying User-Agent. Private and local hosts are refused.</span>
-    <span>Sources: <a href="https://www.php.net/releases/active.php" target="_blank" rel="noopener">php.net</a>, <a href="https://endoflife.date/php" target="_blank" rel="noopener">endoflife.date</a></span>
-    <span>Rate limits per IP: 30 checks, 10 imports and 60 MCP calls per minute.</span>
-    <span>Open source: <a href="https://github.com/midego1/phpcheck" target="_blank" rel="noopener">github.com/midego1/phpcheck</a> (MIT)</span>
-    <span>By <a href="https://x.com/midego1" target="_blank" rel="noopener">@midego1</a> · <a href="https://midego.net" target="_blank" rel="noopener">midego.net</a></span>
-  </footer>
+MCP  https://phpcheck.midego.net/mcp</pre>
+      <p class="side-note">No key, 20 targets per request. Add to Claude Code:</p>
+      <pre>claude mcp add --transport http phpcheck https://phpcheck.midego.net/mcp</pre>
+    </section>
+  </aside>
 </main>
 <div class="toast" id="toast" role="status"></div>
 
@@ -487,10 +497,10 @@ function renderReleases() {
   if (!releases) return;
   const rows = Object.values(releases.branches).filter((b) => b.status !== 'eol').sort((a, b) => b.branch.localeCompare(a.branch, undefined, { numeric: true }));
   const cls = { eol: 'v-eol', security: 'v-distro', active: 'v-latest' };
-  const label = { eol: 'end-of-life', security: 'security fixes only', active: 'active support' };
-  $('#releases-box').innerHTML = `<table><tr><th>Branch</th><th>Latest</th><th>Released</th><th>Tags</th><th>Status</th><th>Active support until</th><th>Security support until</th></tr>
-    ${rows.map((b) => `<tr><td class="mono">${esc(b.branch)}</td><td class="mono"><b>${esc(b.latest || '-')}</b></td><td>${esc(b.latestDate || '-')}</td><td>${esc((b.latestTags || []).join(', '))}</td><td><span class="verdict ${cls[b.status] || 'v-no-signal'}">${esc(label[b.status] || b.status)}</span></td><td>${esc(b.activeSupportUntil || '-')}</td><td>${esc(b.eol || '-')}</td></tr>`).join('')}</table>
-    <p class="status" style="margin:10px 0 0">Sources: php.net${releases.sources.phpnet ? '' : ' (unavailable)'} · endoflife.date${releases.sources.endoflife ? '' : ' (unavailable)'} · fetched ${esc(releases.fetchedAt.replace('T', ' ').slice(0, 16))} UTC</p>`;
+  const label = { eol: 'end-of-life', security: 'security only', active: 'active' };
+  $('#releases-box').innerHTML = `<table><tr><th>Branch</th><th>Latest</th><th>Status</th><th>EOL</th></tr>
+    ${rows.map((b) => `<tr><td class="mono">${esc(b.branch)}</td><td class="mono"><b>${esc(b.latest || '-')}</b></td><td><span class="verdict ${cls[b.status] || 'v-no-signal'}">${esc(label[b.status] || b.status)}</span></td><td>${esc((b.eol || '-').slice(0, 7))}</td></tr>`).join('')}</table>
+    <p class="status" style="margin:8px 0 0">Latest patches released ${esc(rows[0]?.latestDate || '')}. php.net${releases.sources.phpnet ? '' : ' (unavailable)'} · endoflife.date${releases.sources.endoflife ? '' : ' (unavailable)'} · fetched ${esc(releases.fetchedAt.replace('T', ' ').slice(0, 16))} UTC</p>`;
 }
 
 $('#csv').addEventListener('click', () => {
