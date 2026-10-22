@@ -65,7 +65,8 @@ for (const rec of Object.values(feed)) {
     const slug = type === 'core' ? 'wordpress' : String(sw.slug || '').toLowerCase();
     if (!slug) continue;
     const path = type === 'core' ? 'core.json' : `${type}/${prefixOf(slug)}.json`;
-    const file = files.get(path) || files.set(path, {}).get(path);
+    // Object.create(null): slugs like "constructor" or "__proto__" must not hit Object.prototype.
+    const file = files.get(path) || files.set(path, Object.create(null)).get(path);
     (file[slug] = file[slug] || []).push(compact(rec, sw));
     entries++;
   }
