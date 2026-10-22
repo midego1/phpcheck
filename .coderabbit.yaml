@@ -1,0 +1,21 @@
+# https://docs.coderabbit.ai/reference/configuration
+language: en-US
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary: true
+  auto_review:
+    enabled: true
+    drafts: false
+  path_instructions:
+    - path: "src/index.js"
+      instructions: >
+        This is a Cloudflare Worker. Watch for SSRF (every outbound fetch must go through
+        normalizeTarget/isPrivateHost), token handling in importDomains (tokens must never be
+        logged, stored or echoed), rate-limit bypasses, and JSON-RPC conformance in the MCP handler.
+    - path: "public/index.html"
+      instructions: >
+        Single static page. Check every injection of server data goes through esc(), that
+        tokens are never put in URLs or localStorage, and that the page still works without JS errors.
+chat:
+  auto_reply: true
