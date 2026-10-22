@@ -4,257 +4,326 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PHP Check</title>
-<meta name="description" content="Reads the PHP version a website exposes, compares it with the current releases on php.net, and writes the check-and-fix prompt for your agent. Bulk, up to 100 domains.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23111'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='16' font-weight='700' fill='white' text-anchor='middle'%3E%3C?%3C/text%3E%3C/svg%3E">
+<meta name="description" content="Reads the PHP version a website exposes, compares it with the current releases on php.net, and writes the check-and-fix prompt for your agent. Bulk, up to 300 domains, or import a whole Cloudflare or Vercel account.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2318181b'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='16' font-weight='700' fill='white' text-anchor='middle'%3E%3C?%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script defer src="https://umami.midego.net/script.js" data-website-id="a42dadfd-9fad-4717-b258-ebf9411305be"></script>
 <style>
+  /* shadcn/ui zinc tokens */
   :root{
-    color-scheme:light dark;
-    --bg:#fff;--panel:#f3f4f4;--text:#15171a;--text2:#4a5058;--muted:#767d87;--line:#dcdfe3;--line2:#c6cacf;
-    --accent:#0e6b8c;--ink:#15171a;--ink-fg:#fff;
-    --ok:#1b7f3b;--warn:#9a5b00;--bad:#b3261e;--info:#1d5fa6;--gray:#5d646d;
-    --code:#eef0f1;--selection:#d7ecf3;
-    --sans:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+    color-scheme:light;
+    --background:0 0% 100%;--foreground:240 10% 3.9%;
+    --card:0 0% 100%;--card-foreground:240 10% 3.9%;
+    --popover:0 0% 100%;--popover-foreground:240 10% 3.9%;
+    --primary:240 5.9% 10%;--primary-foreground:0 0% 98%;
+    --secondary:240 4.8% 95.9%;--secondary-foreground:240 5.9% 10%;
+    --muted:240 4.8% 95.9%;--muted-foreground:240 3.8% 46.1%;
+    --accent:240 4.8% 95.9%;--accent-foreground:240 5.9% 10%;
+    --destructive:0 84.2% 60.2%;--destructive-foreground:0 0% 98%;
+    --border:240 5.9% 90%;--input:240 5.9% 90%;--ring:240 10% 3.9%;
+    --radius:.5rem;
+    --ok-bg:142 76% 94%;--ok-fg:142 72% 24%;--ok-bd:142 60% 80%;
+    --warn-bg:38 92% 92%;--warn-fg:30 80% 30%;--warn-bd:38 80% 75%;
+    --bad-bg:0 86% 95%;--bad-fg:0 72% 38%;--bad-bd:0 80% 85%;
+    --info-bg:217 91% 94%;--info-fg:221 70% 36%;--info-bd:217 80% 82%;
+    --gray-bg:240 5% 94%;--gray-fg:240 4% 40%;--gray-bd:240 5% 84%;
+    --shadow:0 1px 2px 0 rgb(0 0 0 / .05);
+    --font:"Geist",ui-sans-serif,system-ui,sans-serif;--mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   }
   @media (prefers-color-scheme:dark){:root{
-    --bg:#131517;--panel:#1b1e22;--text:#e6e7e9;--text2:#b4b9c0;--muted:#8a919b;--line:#2b3036;--line2:#3b4148;
-    --accent:#5fb3d0;--ink:#e6e7e9;--ink-fg:#131517;
-    --ok:#5fcf7d;--warn:#e0a84a;--bad:#f07a73;--info:#7fb2ec;--gray:#9aa1aa;
-    --code:#0f1113;--selection:#24414c;
+    color-scheme:dark;
+    --background:240 10% 3.9%;--foreground:0 0% 98%;
+    --card:240 10% 5.5%;--card-foreground:0 0% 98%;
+    --popover:240 10% 3.9%;--popover-foreground:0 0% 98%;
+    --primary:0 0% 98%;--primary-foreground:240 5.9% 10%;
+    --secondary:240 3.7% 15.9%;--secondary-foreground:0 0% 98%;
+    --muted:240 3.7% 15.9%;--muted-foreground:240 5% 64.9%;
+    --accent:240 3.7% 15.9%;--accent-foreground:0 0% 98%;
+    --destructive:0 62.8% 30.6%;--destructive-foreground:0 0% 98%;
+    --border:240 3.7% 15.9%;--input:240 3.7% 15.9%;--ring:240 4.9% 83.9%;
+    --ok-bg:142 40% 12%;--ok-fg:142 60% 70%;--ok-bd:142 35% 24%;
+    --warn-bg:35 50% 12%;--warn-fg:38 85% 70%;--warn-bd:35 45% 26%;
+    --bad-bg:0 45% 13%;--bad-fg:0 85% 74%;--bad-bd:0 40% 28%;
+    --info-bg:220 45% 14%;--info-fg:215 85% 75%;--info-bd:220 40% 28%;
+    --gray-bg:240 4% 14%;--gray-fg:240 5% 70%;--gray-bd:240 4% 26%;
+    --shadow:0 1px 2px 0 rgb(0 0 0 / .4);
   }}
-  *{box-sizing:border-box}
+  *{box-sizing:border-box;border-color:hsl(var(--border))}
   [hidden]{display:none!important}
-  ::selection{background:var(--selection)}
   html{scroll-behavior:smooth}
-  body{margin:0;font:16px/1.5 var(--sans);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
-  a{color:var(--accent);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
-  a:visited{color:color-mix(in srgb,var(--accent) 70%,var(--muted))}
-  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  body{margin:0;font:14px/1.5 var(--font);background:hsl(var(--background));color:hsl(var(--foreground));-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+  a{color:inherit;text-underline-offset:4px}
+  a.link{color:hsl(var(--primary));text-decoration:underline}
+  :focus-visible{outline:2px solid hsl(var(--ring));outline-offset:2px}
   code,pre,.mono{font-family:var(--mono)}
-  code{font-size:.9em;background:var(--code);padding:1px 4px;border-radius:3px}
-  h1,h2,h3{text-wrap:balance;font-weight:600;letter-spacing:-.01em}
-  h2{font-size:22px;margin:0 0 6px}
-  h3{font-size:16px;margin:0 0 4px}
-  p{margin:0 0 10px}
-  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
-  .layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:0 48px;align-items:start}
-  .col-main{min-width:0}
-  .side{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;padding:24px 0 24px 24px;border-left:1px solid var(--line);font-size:14px;scrollbar-width:thin}
-  .side section{margin:0 0 22px;padding:0 0 18px;border-bottom:1px solid var(--line)}
-  .side section:last-child{border-bottom:0;margin-bottom:0}
-  .side h2{font-size:15px;margin:0 0 8px}
-  .side-list{margin:0;padding-left:18px;color:var(--text2)}
-  .side-list li{margin:0 0 4px}
-  .side-note{color:var(--text2);margin:10px 0 0;font-size:13.5px}
-  .side-note b{color:var(--text)}
-  .side table{font-size:13px;margin:0}
-  .side th,.side td{padding:5px 8px 5px 0}
-  .side pre{font-size:12px;padding:10px;margin:0 0 8px}
-  .side .legend dl,.side.legend dl{gap:5px 10px}
-  .side dd{font-size:13px}
+  code{font-size:.85em;background:hsl(var(--muted));padding:.15em .35em;border-radius:.25rem}
+  pre{background:hsl(var(--muted));border-radius:calc(var(--radius) - 2px);padding:12px;font-size:12.5px;line-height:1.55;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:0;max-height:420px}
+  h1,h2,h3{text-wrap:balance;margin:0;letter-spacing:-.02em}
+  p{margin:0}
+  .muted{color:hsl(var(--muted-foreground))}
+  .container{max-width:1200px;margin:0 auto;padding:0 24px}
 
-  header.top{border-bottom:1px solid var(--line)}
-  header.top .wrap{display:flex;align-items:center;gap:16px;height:52px}
-  .brand{font-weight:600;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:8px}
-  .brand code{background:var(--ink);color:var(--ink-fg);padding:1px 5px;border-radius:3px;font-size:13px}
-  header.top nav{margin-left:auto;display:flex;gap:18px;font-size:14px}
-  header.top nav a{color:var(--text2);text-decoration:none}
-  header.top nav a:hover{color:var(--text);text-decoration:underline}
+  /* header */
+  .hdr{position:sticky;top:0;z-index:20;border-bottom:1px solid hsl(var(--border));background:hsl(var(--background)/.85);backdrop-filter:blur(8px)}
+  .hdr .container{display:flex;align-items:center;gap:24px;height:56px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;text-decoration:none}
+  .brand .mark{width:28px;height:28px;border-radius:7px;background:hsl(var(--primary));color:hsl(var(--primary-foreground));display:grid;place-items:center;font:700 13px var(--mono)}
+  .hdr nav{display:flex;gap:4px;margin-left:8px}
+  .hdr nav a{padding:6px 10px;border-radius:calc(var(--radius) - 2px);color:hsl(var(--muted-foreground));text-decoration:none;font-weight:500}
+  .hdr nav a:hover{color:hsl(var(--foreground));background:hsl(var(--accent))}
+  .hdr .right{margin-left:auto;display:flex;gap:8px}
 
-  .intro{padding:28px 0 18px;max-width:720px}
-  .intro h1{font-size:30px;line-height:1.2;margin:0 0 10px}
-  .intro p{color:var(--text2);font-size:17px;margin:0}
+  /* buttons */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;border-radius:calc(var(--radius) - 2px);font:500 14px var(--font);height:36px;padding:0 16px;border:1px solid transparent;cursor:pointer;transition:background .15s,color .15s,border-color .15s,opacity .15s;background:hsl(var(--primary));color:hsl(var(--primary-foreground));box-shadow:var(--shadow)}
+  .btn:hover{opacity:.9}
+  .btn:disabled{opacity:.5;pointer-events:none}
+  .btn.outline{background:hsl(var(--background));border-color:hsl(var(--input));color:hsl(var(--foreground))}
+  .btn.outline:hover{background:hsl(var(--accent));opacity:1}
+  .btn.secondary{background:hsl(var(--secondary));color:hsl(var(--secondary-foreground));box-shadow:none}
+  .btn.secondary:hover{background:hsl(var(--secondary)/.8);opacity:1}
+  .btn.ghost{background:transparent;color:hsl(var(--foreground));box-shadow:none}
+  .btn.ghost:hover{background:hsl(var(--accent));opacity:1}
+  .btn.sm{height:32px;padding:0 12px;font-size:13px}
+  .btn.xs{height:28px;padding:0 10px;font-size:12.5px;border-radius:6px}
+  .btn.icon{width:32px;padding:0}
+  .btn svg{width:15px;height:15px;flex:none}
+  .btn img,.btn .mono-icon{width:15px;height:15px;display:block}
+  .mono-icon{background:currentColor;-webkit-mask:var(--icon) center/contain no-repeat;mask:var(--icon) center/contain no-repeat}
 
-  .work{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px}
-  label.lbl{display:block;font-size:13px;font-weight:500;color:var(--text2);margin-bottom:6px}
-  textarea{width:100%;min-height:128px;padding:10px 12px;border:1px solid var(--line2);border-radius:4px;background:var(--bg);color:var(--text);font:14px/1.5 var(--mono);resize:vertical}
-  textarea:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
-  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
-  .btn{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--line2);border-radius:4px;background:var(--bg);color:var(--text);cursor:pointer;font:500 14px var(--sans);min-height:40px}
-  .btn:hover{border-color:var(--text2)}
-  .btn:active{transform:translateY(1px)}
-  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
-  .btn.primary{background:var(--ink);border-color:var(--ink);color:var(--ink-fg);padding:9px 18px}
-  .btn.primary:hover{opacity:.9}
-  .btn.sm{padding:5px 10px;min-height:32px;font-size:13px}
-  .btn.link{border:0;background:none;color:var(--accent);text-decoration:underline;text-underline-offset:3px;padding:5px 2px}
-  .btn img{width:15px;height:15px;display:block}
-  .examples{font-size:13px;color:var(--muted);display:flex;gap:4px 10px;flex-wrap:wrap;align-items:center;margin-top:10px}
-  .chip{background:none;border:0;padding:0;font:13px var(--mono);color:var(--accent);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
-  .status{font-size:13px;color:var(--muted)}
-  .import{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
-  .import-row{display:flex;gap:8px 10px;flex-wrap:wrap;align-items:end}
-  .import-row .lbl{margin:0 0 4px;width:100%}
-  .import input{flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--line2);border-radius:4px;background:var(--bg);color:var(--text);font:14px var(--mono);min-height:36px}
-  .import input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
-  .import p{margin:8px 0 0}
-  progress{width:100%;height:4px;border:0;margin-top:12px;appearance:none;background:var(--line)}
-  progress::-webkit-progress-bar{background:var(--line)}
-  progress::-webkit-progress-value{background:var(--accent);transition:width .25s ease-out}
+  /* inputs */
+  textarea,input{width:100%;border:1px solid hsl(var(--input));background:transparent;color:hsl(var(--foreground));border-radius:calc(var(--radius) - 2px);padding:8px 12px;font:14px/1.5 var(--mono);box-shadow:var(--shadow)}
+  textarea{min-height:140px;resize:vertical}
+  input{height:36px}
+  textarea::placeholder,input::placeholder{color:hsl(var(--muted-foreground))}
+  textarea:focus-visible,input:focus-visible{outline:2px solid hsl(var(--ring));outline-offset:2px}
+  label{font-size:13.5px;font-weight:500;line-height:1}
 
-  .summary{margin:28px 0 8px;font-size:15px;display:flex;gap:4px 14px;flex-wrap:wrap;align-items:baseline}
-  .summary b{font-weight:600}
-  .summary button{background:none;border:0;padding:0;font:inherit;color:var(--text2);cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line2)}
-  .summary button:hover{color:var(--text)}
-  .summary button.active{color:var(--text);text-decoration-color:var(--text)}
-  .summary button i{display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--c);margin-right:6px;vertical-align:0}
+  /* card */
+  .card{background:hsl(var(--card));color:hsl(var(--card-foreground));border:1px solid hsl(var(--border));border-radius:var(--radius);box-shadow:var(--shadow)}
+  .card-h{padding:20px 24px 0}
+  .card-h h2,.card-h h3{font-size:16px;font-weight:600;line-height:1.3}
+  .card-h p{color:hsl(var(--muted-foreground));margin-top:4px;font-size:13.5px}
+  .card-c{padding:20px 24px}
+  .card-f{padding:0 24px 20px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .sep{height:1px;background:hsl(var(--border));margin:0}
 
-  .results{border-top:1px solid var(--line)}
-  .row{border-bottom:1px solid var(--line);padding:14px 0}
-  .row .head{display:grid;grid-template-columns:minmax(160px,1.4fr) auto minmax(0,2fr) auto;gap:8px 18px;align-items:baseline}
-  .row .host{font-weight:600;font-size:16px;word-break:break-all}
-  .row .ver{font-family:var(--mono);font-size:14px;color:var(--text2)}
-  .row .ver b{color:var(--text);font-weight:500}
-  .row .meta{font-family:var(--mono);font-size:12.5px;color:var(--muted);text-align:right;white-space:nowrap}
-  .verdict{font-size:13px;font-weight:500;color:var(--c);white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
-  .verdict::before{content:"";width:9px;height:9px;border-radius:2px;background:var(--c);flex:none}
-  .v-latest{--c:var(--ok)}.v-outdated,.v-eol{--c:var(--bad)}.v-distro,.v-partial{--c:var(--warn)}
-  .v-php-no-version{--c:var(--info)}.v-no-signal,.v-unreachable,.v-invalid{--c:var(--gray)}
-  .adv{font-size:13px;color:var(--bad);font-weight:500}
-  ul.findings{margin:8px 0 0;padding:0;list-style:none;color:var(--text2);font-size:15px}
-  ul.findings li{padding:2px 0 2px 16px;position:relative}
-  ul.findings li::before{content:"";position:absolute;left:0;top:11px;width:7px;height:7px;border-radius:2px;background:var(--muted)}
-  li.ok::before{background:var(--ok)}li.warn::before{background:var(--warn)}li.bad::before{background:var(--bad)}li.info::before{background:var(--info)}
-  details{margin-top:8px}
-  summary{cursor:pointer;color:var(--accent);font-size:14px;text-decoration:underline;text-underline-offset:3px;width:max-content}
-  table{border-collapse:collapse;width:100%;font-size:14px;margin-top:8px}
-  th,td{text-align:left;padding:7px 10px 7px 0;border-bottom:1px solid var(--line);vertical-align:top}
-  th{color:var(--muted);font-weight:500;font-size:13px}
-  pre{background:var(--code);padding:12px;border-radius:4px;overflow:auto;white-space:pre-wrap;word-break:break-word;max-height:420px;font-size:13px;line-height:1.5;margin:8px 0 0}
-  .actions{display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center;margin-top:10px}
-  .ai{display:inline-flex;gap:2px;align-items:center;flex-wrap:wrap}
-  .ai span{font-size:13px;color:var(--muted);margin-right:6px}
-  .ai button{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid transparent;border-radius:4px;background:none;cursor:pointer;font:13px var(--sans);color:var(--text2);min-height:32px}
-  .ai button:hover{border-color:var(--line2);color:var(--text)}
-  .ai img{width:15px;height:15px;display:block}
-  .ai .mono-icon{display:block;width:15px;height:15px;background:var(--text);-webkit-mask:var(--icon) center/contain no-repeat;mask:var(--icon) center/contain no-repeat}
+  /* badge */
+  .badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid transparent;padding:2px 10px;font-size:12px;font-weight:600;line-height:1.4;white-space:nowrap}
+  .badge.v-latest{background:hsl(var(--ok-bg));color:hsl(var(--ok-fg));border-color:hsl(var(--ok-bd))}
+  .badge.v-outdated,.badge.v-eol,.badge.destructive{background:hsl(var(--bad-bg));color:hsl(var(--bad-fg));border-color:hsl(var(--bad-bd))}
+  .badge.v-distro,.badge.v-partial,.badge.v-security{background:hsl(var(--warn-bg));color:hsl(var(--warn-fg));border-color:hsl(var(--warn-bd))}
+  .badge.v-php-no-version{background:hsl(var(--info-bg));color:hsl(var(--info-fg));border-color:hsl(var(--info-bd))}
+  .badge.v-no-signal,.badge.v-not-php,.badge.v-unreachable,.badge.v-invalid,.badge.v-active-support{background:hsl(var(--gray-bg));color:hsl(var(--gray-fg));border-color:hsl(var(--gray-bd))}
+  .badge.v-active{background:hsl(var(--ok-bg));color:hsl(var(--ok-fg));border-color:hsl(var(--ok-bd))}
+  .badge.secondary{background:hsl(var(--secondary));color:hsl(var(--secondary-foreground))}
+  .badge.outline{border-color:hsl(var(--border));color:hsl(var(--foreground))}
+  .badge i{width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block}
 
-  section{margin-top:40px}
-  section .lead{color:var(--text2);max-width:680px;margin-bottom:18px}
-  .cols{display:grid;grid-template-columns:1fr 1fr;gap:28px 40px}
-  .cols dl{margin:0}
-  dt{font-weight:600;margin-top:14px}dt:first-child{margin-top:0}
-  dd{margin:2px 0 0;color:var(--text2)}
-  .note{border-left:2px solid var(--warn);padding:2px 0 2px 14px;margin:20px 0 0;max-width:680px;color:var(--text2)}
-  .note b{color:var(--text)}
-  .prompts{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-  .prompt p{color:var(--text2);font-size:15px}
-  .prompt pre{max-height:240px}
-  .legend dl{display:grid;grid-template-columns:max-content 1fr;gap:8px 16px;margin:0}
-  .legend dt{margin:0}.legend dd{margin:0;color:var(--text2)}
-  .releases-wrap{overflow-x:auto}
-  footer{margin:40px 0 32px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-wrap:wrap;gap:6px 24px}
-  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--ink-fg);padding:8px 14px;border-radius:4px;font-size:14px;opacity:0;transition:opacity .15s ease-out;pointer-events:none;z-index:50}
-  .toast.show{opacity:1}
-  @media(max-width:1000px){.layout{grid-template-columns:1fr}.side{position:static;max-height:none;overflow:visible;border-left:0;padding:8px 0 0;border-top:1px solid var(--line);margin-top:8px}.prompts{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:760px){.cols,.prompts{grid-template-columns:1fr}.row .head{grid-template-columns:1fr auto}.row .meta{text-align:left;grid-column:1/-1}.row .ver{grid-column:1/-1}header.top nav{display:none}.intro{padding-top:28px}.intro h1{font-size:26px}}
-  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}html{scroll-behavior:auto}}
+  /* layout */
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start;padding-top:28px;padding-bottom:48px}
+  .main{display:flex;flex-direction:column;gap:20px;min-width:0}
+  .side{display:flex;flex-direction:column;gap:16px;position:sticky;top:72px;max-height:calc(100vh - 88px);overflow-y:auto;scrollbar-width:thin;padding-right:2px}
+  .intro h1{font-size:28px;font-weight:700;line-height:1.2}
+  .intro p{color:hsl(var(--muted-foreground));font-size:15px;margin-top:8px;max-width:680px}
+
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .field{display:flex;flex-direction:column;gap:8px}
+  .examples{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:13px;color:hsl(var(--muted-foreground))}
+  .chip{cursor:pointer;background:hsl(var(--secondary));color:hsl(var(--secondary-foreground));border:0;border-radius:999px;padding:3px 10px;font:500 12px var(--mono)}
+  .chip:hover{background:hsl(var(--secondary)/.7)}
+  .import{margin-top:16px;background:hsl(var(--muted)/.6);border:1px solid hsl(var(--border));border-radius:calc(var(--radius) - 2px);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+  .import .row input{flex:1;min-width:220px;background:hsl(var(--background))}
+  .import p{font-size:13px;color:hsl(var(--muted-foreground))}
+  .status{font-size:13px;color:hsl(var(--muted-foreground))}
+  progress{width:100%;height:6px;border:0;border-radius:99px;overflow:hidden;background:hsl(var(--secondary));margin-top:14px;appearance:none}
+  progress::-webkit-progress-bar{background:hsl(var(--secondary))}
+  progress::-webkit-progress-value{background:hsl(var(--primary));transition:width .25s ease-out}
+
+  /* summary tabs */
+  .tabs{display:inline-flex;gap:2px;background:hsl(var(--muted));padding:4px;border-radius:calc(var(--radius) - 2px);flex-wrap:wrap}
+  .tabs button{border:0;background:transparent;color:hsl(var(--muted-foreground));font:500 13px var(--font);padding:5px 12px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+  .tabs button.active{background:hsl(var(--background));color:hsl(var(--foreground));box-shadow:var(--shadow)}
+  .tabs button i{width:7px;height:7px;border-radius:50%;background:var(--c);display:inline-block}
+  .tabs .v-latest{--c:hsl(var(--ok-fg))}.tabs .v-outdated,.tabs .v-eol{--c:hsl(var(--bad-fg))}.tabs .v-distro,.tabs .v-partial{--c:hsl(var(--warn-fg))}.tabs .v-php-no-version{--c:hsl(var(--info-fg))}.tabs .v-no-signal,.tabs .v-not-php,.tabs .v-unreachable,.tabs .v-invalid{--c:hsl(var(--gray-fg))}
+  .tabs b{font-weight:600}
+
+  /* result cards */
+  .results{display:flex;flex-direction:column;gap:12px}
+  .rc .card-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:16px 20px 0}
+  .rc .host{font-weight:600;font-size:15px;word-break:break-all}
+  .rc .ver{font-family:var(--mono);font-size:13px;color:hsl(var(--muted-foreground))}
+  .rc .ver b{color:hsl(var(--foreground));font-weight:500}
+  .rc .meta{margin-left:auto;font-family:var(--mono);font-size:12px;color:hsl(var(--muted-foreground))}
+  .rc .card-c{padding:12px 20px 0}
+  .rc .card-f{padding:14px 20px 16px}
+  ul.findings{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+  ul.findings li{display:flex;gap:10px;align-items:flex-start}
+  ul.findings li::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;margin-top:7px;background:hsl(var(--muted-foreground))}
+  li.ok::before{background:hsl(var(--ok-fg))}li.warn::before{background:hsl(var(--warn-fg))}li.bad::before{background:hsl(var(--bad-fg))}li.info::before{background:hsl(var(--info-fg))}
+  details{margin-top:12px;border-top:1px solid hsl(var(--border));padding-top:10px}
+  summary{cursor:pointer;font-size:13px;font-weight:500;color:hsl(var(--muted-foreground));list-style:none;display:flex;align-items:center;gap:6px;user-select:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .15s}
+  details[open] summary::before{transform:rotate(45deg)}
+  summary:hover{color:hsl(var(--foreground))}
+  .details-body{padding-top:10px;display:flex;flex-direction:column;gap:12px}
+  .details-body h4{margin:0;font-size:13px;font-weight:600}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid hsl(var(--border));vertical-align:top}
+  th{color:hsl(var(--muted-foreground));font-weight:500;height:36px}
+  tr:last-child td{border-bottom:0}
+  .tbl{border:1px solid hsl(var(--border));border-radius:calc(var(--radius) - 2px);overflow:hidden}
+  .ai{display:inline-flex;gap:2px;align-items:center;margin-left:auto}
+  .ai span{font-size:12.5px;color:hsl(var(--muted-foreground));margin-right:4px}
+  .ai .btn{height:30px;padding:0 9px;font-size:12.5px}
+
+  /* sidebar bits */
+  .side .card-h{padding:16px 18px 0}
+  .side .card-c{padding:14px 18px 16px}
+  .side ol{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;color:hsl(var(--muted-foreground));font-size:13.5px}
+  .side ol li::marker{color:hsl(var(--foreground));font-weight:600}
+  .legend{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;font-size:13px;color:hsl(var(--muted-foreground))}
+  .alert{display:flex;gap:10px;border:1px solid hsl(var(--bad-bd));background:hsl(var(--bad-bg));color:hsl(var(--bad-fg));border-radius:calc(var(--radius) - 2px);padding:12px 14px;font-size:13px;line-height:1.45}
+  .alert svg{flex:none;width:16px;height:16px;margin-top:1px}
+  .alert b{display:block;font-weight:600;margin-bottom:2px}
+  .alert a{color:inherit;text-decoration:underline}
+  .side pre{font-size:12px;padding:10px 12px}
+  .side .tbl td,.side .tbl th{white-space:nowrap;padding:7px 8px}
+  .kv{display:flex;flex-direction:column;gap:8px;font-size:13px}
+  .kv div{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+
+  .prompts{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .prompts .card{display:flex;flex-direction:column}
+  .prompts .card-c{flex:1;padding-top:14px}
+  .prompts pre{max-height:240px;font-size:12px}
+  .prompts .card-f{padding-top:0}
+  footer{color:hsl(var(--muted-foreground));font-size:12.5px;display:flex;flex-wrap:wrap;gap:6px 20px;padding-top:8px}
+  footer a{text-decoration:underline}
+  .toast{position:fixed;bottom:20px;right:20px;background:hsl(var(--background));color:hsl(var(--foreground));border:1px solid hsl(var(--border));box-shadow:0 10px 30px -10px rgb(0 0 0/.3);padding:10px 14px;border-radius:var(--radius);font-size:13.5px;font-weight:500;opacity:0;transform:translateY(8px);transition:all .18s ease-out;pointer-events:none;z-index:50}
+  .toast.show{opacity:1;transform:none}
+  @media(max-width:1000px){.layout{grid-template-columns:1fr}.side{position:static;max-height:none;overflow:visible}.prompts{grid-template-columns:1fr 1fr}}
+  @media(max-width:680px){.prompts{grid-template-columns:1fr}.hdr nav{display:none}.card-h,.card-c{padding-left:16px;padding-right:16px}.card-f{padding-left:16px;padding-right:16px}.rc .meta{margin-left:0;width:100%}.container{padding:0 16px}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}html{scroll-behavior:auto}}
 </style>
 </head>
 <body>
-<header class="top"><div class="wrap">
-  <a class="brand" href="#"><code>&lt;?</code> PHP Check</a>
-  <nav><a href="#how">How it works</a><a href="#releases">Releases</a><a href="#prompts">Agent prompts</a><a href="#api">API &amp; MCP</a><a href="https://github.com/midego1/phpcheck" target="_blank" rel="noopener">GitHub</a></nav>
+<header class="hdr"><div class="container">
+  <a class="brand" href="#"><span class="mark">&lt;?</span>PHP Check</a>
+  <nav><a href="#how">How it works</a><a href="#releases">Releases</a><a href="#prompts">Prompts</a><a href="#api">API &amp; MCP</a></nav>
+  <div class="right">
+    <a class="btn outline sm" href="https://github.com/midego1/phpcheck" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.7.5.7 5.6.7 11.9c0 5 3.2 9.3 7.8 10.8.6.1.8-.2.8-.5v-2c-3.2.7-3.8-1.4-3.8-1.4-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.5-.3-5.2-1.3-5.2-5.7 0-1.3.4-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.2 5.7.4.4.8 1 .8 2.1v3.1c0 .3.2.6.8.5 4.6-1.5 7.8-5.8 7.8-10.8C23.3 5.6 18.3.5 12 .5z"/></svg>GitHub</a>
+  </div>
 </div></header>
 
-<main class="wrap layout">
-  <div class="col-main">
+<main class="container layout">
+  <div class="main">
     <div class="intro">
       <h1>Check the PHP patch level of any domain</h1>
       <p>Reads the version a site exposes, compares it with the releases on php.net, and writes the check-and-fix prompt for your agent. Up to 300 domains at a time, or import every domain from a Cloudflare or Vercel account.</p>
     </div>
 
-    <div class="work">
-      <label class="lbl" for="targets">Domains, one per line</label>
-      <textarea id="targets" placeholder="example.com&#10;https://shop.example.org/&#10;wordpress.org"></textarea>
-      <div class="toolbar">
-        <button class="btn primary" id="run" data-umami-event="check">Check domains</button>
-        <button class="btn" id="clear">Clear</button>
+    <div class="card">
+      <div class="card-h"><h2>Domains</h2><p>One domain or URL per line. Only the homepage is requested.</p></div>
+      <div class="card-c">
+        <div class="field">
+          <textarea id="targets" placeholder="example.com&#10;https://shop.example.org/&#10;wordpress.org" aria-label="Domains, one per line"></textarea>
+          <div class="examples">Try <button class="chip" data-ex="wordpress.org">wordpress.org</button><button class="chip" data-ex="php.net">php.net</button><button class="chip" data-ex="laravel.com">laravel.com</button><button class="chip" data-ex="drupal.org">drupal.org</button><button class="chip" data-ex="github.com">github.com</button>
+            <span style="flex:1"></span>
+            <span style="display:inline-flex;gap:6px;align-items:center;white-space:nowrap">Import from <button class="btn outline xs" data-import="cloudflare"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.5 17.3c.2-.6.1-1.2-.2-1.6-.3-.4-.8-.6-1.4-.6l-11-.1c-.1 0-.1 0-.2-.1 0-.1 0-.1 0-.2l.1-.2c.1-.1.1-.1.2-.1l11.1-.1c1.3-.1 2.7-1.1 3.2-2.4l.6-1.6v-.3C18.6 7.2 16 5 12.9 5c-2.8 0-5.2 1.8-6 4.4-.5-.4-1.2-.6-1.9-.5-1.3.1-2.3 1.2-2.4 2.5 0 .3 0 .7.1 1C.6 12.4 0 14.3 0 15.7c0 .2 0 .4 0 .6 0 .1.1.2.2.2h16.2c.1 0 .2-.1.2-.2l-.1 1z"/><path d="M20 10.6h-.3c-.1 0-.1.1-.2.1l-.4 1.5c-.2.6-.1 1.2.2 1.6.3.4.8.6 1.4.6l2.5.1c.1 0 .1 0 .2.1 0 .1 0 .1 0 .2l-.1.2c-.1.1-.1.1-.2.1l-2.6.1c-1.3.1-2.7 1.1-3.2 2.4l-.2.5c0 .1 0 .2.1.2h8.6c.1 0 .2-.1.2-.2.2-.5.2-1.1.2-1.6 0-3.2-2.6-5.9-6.2-5.9z"/></svg>Cloudflare</button><button class="btn outline xs" data-import="vercel"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 24 22H0z"/></svg>Vercel</button></span>
+          </div>
+        </div>
+        <form id="import" class="import" hidden autocomplete="off">
+          <label for="imp-token" id="imp-label">Cloudflare API token</label>
+          <div class="row">
+            <input id="imp-token" type="password" autocomplete="off" spellcheck="false" placeholder="paste token">
+            <input id="imp-team" type="text" autocomplete="off" spellcheck="false" placeholder="team slug or ID (optional)" aria-label="Team slug or ID (optional)" hidden>
+            <button class="btn sm" type="submit" id="imp-go">Import domains</button>
+            <button class="btn ghost sm" type="button" id="imp-cancel">Cancel</button>
+          </div>
+          <p id="imp-help"></p>
+        </form>
+        <progress id="prog" value="0" max="1" hidden></progress>
+      </div>
+      <div class="sep"></div>
+      <div class="card-f" style="padding-top:16px">
+        <button class="btn" id="run" data-umami-event="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Check domains</button>
+        <button class="btn outline" id="clear">Clear</button>
         <span class="status" id="status"></span>
         <span style="flex:1"></span>
-        <button class="btn sm" id="csv" disabled data-umami-event="export-csv">Download CSV</button>
-        <button class="btn sm" id="jsonx" disabled data-umami-event="export-json">Download JSON</button>
+        <button class="btn ghost sm" id="csv" disabled data-umami-event="export-csv">Export CSV</button>
+        <button class="btn ghost sm" id="jsonx" disabled data-umami-event="export-json">Export JSON</button>
       </div>
-      <div class="examples">Examples: <button class="chip" data-ex="wordpress.org">wordpress.org</button><button class="chip" data-ex="php.net">php.net</button><button class="chip" data-ex="laravel.com">laravel.com</button><button class="chip" data-ex="drupal.org">drupal.org</button><button class="chip" data-ex="github.com">github.com</button>
-        <span style="flex:1"></span>
-        <span>Import all domains from</span> <button class="chip" data-import="cloudflare">Cloudflare</button> <button class="chip" data-import="vercel">Vercel</button></div>
-      <form id="import" class="import" hidden autocomplete="off">
-        <div class="import-row">
-          <label class="lbl" for="imp-token" id="imp-label">Cloudflare API token</label>
-          <input id="imp-token" type="password" autocomplete="off" spellcheck="false" placeholder="paste token">
-          <label class="lbl" for="imp-team" id="imp-team-label" hidden>Team slug or ID (optional)</label>
-          <input id="imp-team" type="text" autocomplete="off" spellcheck="false" placeholder="my-team" hidden>
-          <button class="btn sm" type="submit" id="imp-go">Import domains</button>
-          <button class="btn sm link" type="button" id="imp-cancel">Cancel</button>
-        </div>
-        <p class="status" id="imp-help"></p>
-      </form>
-      <progress id="prog" value="0" max="1" hidden></progress>
     </div>
 
-    <div id="stats" class="summary" hidden></div>
+    <div id="stats" class="tabs" hidden></div>
     <div id="results" class="results" hidden></div>
 
     <section id="prompts">
-      <h2>Prompts for agents</h2>
-      <p class="lead">Every result has its own prompt with the observations filled in. These are the generic templates behind it. Replace <code>{{domain}}</code>, or open one directly in your assistant.</p>
+      <div class="intro" style="margin-bottom:14px"><h2 style="font-size:20px;font-weight:600">Prompts for agents</h2><p style="font-size:14px;margin-top:4px">Every result above carries its own prompt with the evidence filled in. These are the templates behind it. Replace <code>{{domain}}</code>, or open one straight in your assistant.</p></div>
       <div class="prompts" id="prompt-grid"></div>
     </section>
 
     <footer>
-      <span>Only the homepage is requested, with an identifying User-Agent. Private and local hosts are refused.</span>
-      <span>Rate limits per IP: 30 checks, 10 imports and 60 MCP calls per minute.</span>
-      <span>Open source: <a href="https://github.com/midego1/phpcheck" target="_blank" rel="noopener">github.com/midego1/phpcheck</a> (MIT)</span>
+      <span>Passive check with an identifying User-Agent. Private and local hosts are refused.</span>
+      <span>Rate limits per IP: 30 checks, 10 imports, 60 MCP calls per minute.</span>
+      <span><a href="https://github.com/midego1/phpcheck" target="_blank" rel="noopener">Open source, MIT</a></span>
       <span>By <a href="https://x.com/midego1" target="_blank" rel="noopener">@midego1</a> · <a href="https://midego.net" target="_blank" rel="noopener">midego.net</a></span>
     </footer>
   </div>
 
   <aside class="side">
-    <section id="releases">
-      <h2>Current PHP releases</h2>
-      <div id="releases-box"><span class="status">Loading from php.net…</span></div>
-      <p class="side-note"><b>21 Oct 2026:</b> security release fixing CVE-2026-109618 and CVE-2026-109619, both CVSS 9.2 remote code execution. Anything below the versions above is affected. <a href="https://www.php.net/archive/2026.php#2026-10-21-1" target="_blank" rel="noopener">php.net</a></p>
-    </section>
+    <div class="card" id="releases">
+      <div class="card-h"><h3>PHP releases</h3><p>Supported branches, live from php.net.</p></div>
+      <div class="card-c">
+        <div id="releases-box"><span class="status">Loading from php.net…</span></div>
+        <div class="alert" style="margin-top:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.3 3.9-8.5 14.6A2 2 0 0 0 3.5 21.5h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg><div><b>Security release, 21 Oct 2026</b>Fixes CVE-2026-109618 and CVE-2026-109619, both CVSS 9.2 remote code execution. Anything below the versions above is affected. <a href="https://www.php.net/archive/2026.php#2026-10-21-1" target="_blank" rel="noopener">php.net</a></div></div>
+      </div>
+    </div>
 
-    <section id="how">
-      <h2>How it works</h2>
-      <ol class="side-list">
-        <li>One HEAD request to the homepage, GET when needed, up to five redirects.</li>
-        <li>Version read from <code>X-Powered-By</code> or <code>Server</code>; PHPSESSID, CMS markers and <code>.php</code> links tell "PHP, version hidden" from "no PHP".</li>
-        <li>Compared with php.net and endoflife.date, cached six hours.</li>
-        <li>Each result gets a check, confirm, fix and verify prompt for your agent.</li>
-      </ol>
-      <p class="side-note"><b>Most sites hide the version on purpose.</b> PHP only sends <code>X-Powered-By</code> when <code>expose_php = On</code>; good hosts, Docker images and CDNs turn it off or strip it. "Version hidden" is expected, not a failed check: the patch level is then confirmed from inside, which is what the prompt walks through.</p>
-    </section>
+    <div class="card" id="how">
+      <div class="card-h"><h3>How it works</h3></div>
+      <div class="card-c">
+        <ol>
+          <li>One HEAD request to the homepage, GET when needed, up to five redirects.</li>
+          <li>Version read from <code>X-Powered-By</code> or <code>Server</code>. PHPSESSID, CMS markers and <code>.php</code> links separate "PHP, version hidden" from "no PHP".</li>
+          <li>Compared with php.net and endoflife.date, cached six hours.</li>
+          <li>Each result gets a check, confirm, fix and verify prompt for your agent.</li>
+        </ol>
+        <p class="muted" style="margin-top:12px;font-size:13px"><b style="color:hsl(var(--foreground))">Most sites hide the version on purpose.</b> PHP only sends <code>X-Powered-By</code> when <code>expose_php = On</code>; good hosts, Docker images and CDNs turn it off or strip it. "Version hidden" is expected, not a failed check. The patch level is then confirmed from inside, which is what the prompt walks through.</p>
+      </div>
+    </div>
 
-    <section id="legend" class="legend">
-      <h2>Verdicts</h2>
-      <dl>
-        <dt><span class="verdict v-latest">latest</span></dt><dd>Newest patch on its branch.</dd>
-        <dt><span class="verdict v-outdated">outdated</span></dt><dd>Same branch, older patch.</dd>
-        <dt><span class="verdict v-eol">EOL</span></dt><dd>Branch gets no fixes any more.</dd>
-        <dt><span class="verdict v-distro">distro build</span></dt><dd>Debian/Ubuntu/RHEL package; fixes may be backported. Check inside.</dd>
-        <dt><span class="verdict v-partial">partial</span></dt><dd>Only "PHP/8.x" exposed.</dd>
-        <dt><span class="verdict v-php-no-version">PHP, hidden</span></dt><dd>PHP markers, no version. Check inside.</dd>
-        <dt><span class="verdict v-no-signal">no signal</span></dt><dd>Nothing PHP-related seen.</dd>
-        <dt><span class="verdict v-unreachable">unreachable</span></dt><dd>No HTTP response.</dd>
-      </dl>
-    </section>
+    <div class="card" id="verdicts">
+      <div class="card-h"><h3>Verdicts</h3></div>
+      <div class="card-c">
+        <div class="legend">
+          <span class="badge v-latest">latest</span><span>Newest patch on its branch.</span>
+          <span class="badge v-outdated">outdated</span><span>Same branch, older patch.</span>
+          <span class="badge v-eol">EOL</span><span>Branch gets no fixes any more.</span>
+          <span class="badge v-distro">distro build</span><span>Debian/Ubuntu/RHEL package; fixes may be backported. Check inside.</span>
+          <span class="badge v-partial">partial</span><span>Only "PHP/8.x" exposed.</span>
+          <span class="badge v-php-no-version">PHP, hidden</span><span>PHP markers, no version. Check inside.</span>
+          <span class="badge v-not-php">not PHP</span><span>Next.js, Shopify, ASP.NET and the like, identified from markers.</span>
+          <span class="badge v-no-signal">no signal</span><span>Nothing PHP-related seen and no other stack identified.</span>
+          <span class="badge v-unreachable">unreachable</span><span>No HTTP response.</span>
+        </div>
+      </div>
+    </div>
 
-    <section id="api">
-      <h2>API &amp; MCP</h2>
-      <pre>GET  /api/releases
+    <div class="card" id="api">
+      <div class="card-h"><h3>API &amp; MCP</h3><p>No key. 20 targets per request.</p></div>
+      <div class="card-c" style="display:flex;flex-direction:column;gap:10px">
+        <pre>GET  /api/releases
 GET  /api/check?target=example.com
-POST /api/check {"targets":[…]}
-POST /api/import {"provider","token"}
-
-MCP  https://phpcheck.midego.net/mcp</pre>
-      <p class="side-note">No key, 20 targets per request. Add to Claude Code:</p>
-      <pre>claude mcp add --transport http phpcheck https://phpcheck.midego.net/mcp</pre>
-    </section>
+POST /api/check    {"targets": […]}
+POST /api/import   {"provider", "token"}</pre>
+        <div class="kv"><div><span class="muted">MCP endpoint</span><code>/mcp</code></div></div>
+        <pre id="mcp-cmd">claude mcp add --transport http phpcheck https://phpcheck.midego.net/mcp</pre>
+        <button class="btn outline sm" data-copy="mcp-cmd">Copy MCP command</button>
+      </div>
+    </div>
   </aside>
 </main>
 <div class="toast" id="toast" role="status"></div>
@@ -303,7 +372,7 @@ Report: before, after, branch status, advisories closed, header exposure, anythi
 
 function aiBar(getText, label) {
   const bar = document.createElement('div'); bar.className = 'ai';
-  bar.innerHTML = `<span>Open in</span>` + AI.map((a) => `<button data-ai="${a.id}">${a.mono ? `<i class="mono-icon" style="--icon:url('${a.icon}')"></i>` : `<img src="${a.icon}" alt="" loading="lazy">`}${a.name}</button>`).join('');
+  bar.innerHTML = `<span>Open in</span>` + AI.map((a) => `<button class="btn ghost" title="Open in ${a.name}" data-ai="${a.id}">${a.mono ? `<i class="mono-icon" style="--icon:url('${a.icon}')"></i>` : `<img src="${a.icon}" alt="" loading="lazy">`}${a.name}</button>`).join('');
   bar.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
     const a = AI.find((x) => x.id === b.dataset.ai);
     track('open-in-' + a.id, { prompt: label });
@@ -317,22 +386,23 @@ function track(name, data) { try { if (window.umami) umami.track(name, data || {
 (function renderPrompts() {
   const grid = $('#prompt-grid');
   PROMPTS.forEach((p, i) => {
-    const el = document.createElement('div'); el.className = 'prompt';
-    el.innerHTML = `<h3>${i + 1}. ${p.title}</h3><p>${p.blurb}</p><pre>${esc(p.text)}</pre><div class="actions"></div>`;
-    const actions = el.querySelector('.actions');
-    const copy = document.createElement('button'); copy.className = 'btn sm'; copy.textContent = 'Copy';
+    const el = document.createElement('div'); el.className = 'card';
+    el.innerHTML = `<div class="card-h"><h3>${i + 1}. ${p.title}</h3><p>${p.blurb}</p></div><div class="card-c"><pre>${esc(p.text)}</pre></div><div class="card-f"></div>`;
+    const actions = el.querySelector('.card-f');
+    const copy = document.createElement('button'); copy.className = 'btn outline sm'; copy.textContent = 'Copy';
     copy.onclick = () => { copyText(p.text); track('copy-prompt', { prompt: p.key }); };
     actions.appendChild(copy);
     actions.appendChild(aiBar(() => p.text, p.key));
     grid.appendChild(el);
   });
 })();
+document.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', () => copyText($('#' + b.dataset.copy).textContent)));
 
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); toast('Copied to clipboard'); } catch { prompt('Copy:', text); }
 }
 let toastT;
-function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1600); }
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800); }
 
 function parseTargets() {
   const seen = new Set();
@@ -342,17 +412,18 @@ document.querySelectorAll('[data-ex]').forEach((c) => c.addEventListener('click'
   const ta = $('#targets'); const cur = ta.value.trim();
   ta.value = (cur ? cur + '\n' : '') + c.dataset.ex; ta.focus();
 }));
+
 const CF_TOKEN_URL = 'https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=' + encodeURIComponent('[{"key":"zone","type":"read"}]') + '&accountId=*&zoneId=all&name=' + encodeURIComponent('PHP Check (zone read)');
 const IMPORT_HELP = {
-  cloudflare: `<a href="${CF_TOKEN_URL}" target="_blank" rel="noopener">Create the token in Cloudflare</a> (opens the dashboard with "Zone · Zone · Read, all zones" prefilled; click Continue to summary, then Create Token and copy it). It is sent once to list your zones and is not stored.`,
-  vercel: '<a href="https://vercel.com/account/tokens" target="_blank" rel="noopener">Create a token in Vercel</a>. For a team, add the team slug or ID below. It is sent once to list project domains and is not stored.',
+  cloudflare: `<a class="link" href="${CF_TOKEN_URL}" target="_blank" rel="noopener">Create the token in Cloudflare</a> (opens the dashboard with "Zone · Zone · Read, all zones" prefilled; Continue to summary, Create Token, copy). It is sent once to list your zones and is not stored.`,
+  vercel: '<a class="link" href="https://vercel.com/account/tokens" target="_blank" rel="noopener">Create a token in Vercel</a>. For a team, add the team slug or ID. It is sent once to list project domains and is not stored.',
 };
 let importProvider = null;
 document.querySelectorAll('[data-import]').forEach((b) => b.addEventListener('click', () => {
   importProvider = b.dataset.import;
   const f = $('#import'); f.hidden = false;
   $('#imp-label').textContent = importProvider === 'cloudflare' ? 'Cloudflare API token' : 'Vercel token';
-  $('#imp-team').hidden = $('#imp-team-label').hidden = importProvider !== 'vercel';
+  $('#imp-team').hidden = importProvider !== 'vercel';
   $('#imp-help').innerHTML = IMPORT_HELP[importProvider];
   $('#imp-token').value = ''; $('#imp-token').focus();
 }));
@@ -421,9 +492,8 @@ $('#run').addEventListener('click', async () => {
   track('check-done', counts);
 });
 
-const LABEL = { latest: 'latest', outdated: 'outdated', eol: 'EOL', distro: 'distro build', partial: 'partial', 'php-no-version': 'PHP, version hidden', 'no-signal': 'no signal', unreachable: 'unreachable', invalid: 'invalid' };
-const ORDER = ['eol', 'outdated', 'distro', 'partial', 'latest', 'php-no-version', 'no-signal', 'unreachable', 'invalid'];
-const ICON = { latest: '✓', outdated: '↑', eol: '✕', distro: '◐', partial: '?', 'php-no-version': '●', 'no-signal': '○', unreachable: '—', invalid: '!' };
+const LABEL = { latest: 'latest', outdated: 'outdated', eol: 'EOL', distro: 'distro build', partial: 'partial', 'php-no-version': 'PHP, version hidden', 'not-php': 'not PHP', 'no-signal': 'no signal', unreachable: 'unreachable', invalid: 'invalid' };
+const ORDER = ['eol', 'outdated', 'distro', 'partial', 'latest', 'php-no-version', 'no-signal', 'not-php', 'unreachable', 'invalid'];
 
 function render() {
   const has = results.length > 0;
@@ -434,12 +504,12 @@ function render() {
     const counts = {};
     for (const r of results) counts[r.verdict] = (counts[r.verdict] || 0) + 1;
     const all = document.createElement('button'); all.className = filter === null ? 'active' : '';
-    all.innerHTML = `<b>${results.length}</b> checked`;
+    all.innerHTML = `All <b>${results.length}</b>`;
     all.onclick = () => { filter = null; render(); }; st.appendChild(all);
     for (const v of ORDER) {
       if (!counts[v]) continue;
       const b = document.createElement('button'); b.className = 'v-' + v + (filter === v ? ' active' : '');
-      b.innerHTML = `<i></i><b>${counts[v]}</b> ${LABEL[v]}`;
+      b.innerHTML = `<i></i>${LABEL[v]} <b>${counts[v]}</b>`;
       b.onclick = () => { filter = filter === v ? null : v; render(); }; st.appendChild(b);
     }
   }
@@ -449,27 +519,29 @@ function render() {
 }
 
 function card(r) {
-  const el = document.createElement('div'); el.className = 'row v-' + r.verdict;
+  const el = document.createElement('div'); el.className = 'card rc';
   const php = r.php || {}; const c = r.comparison;
   let ver = '';
   if (php.version) ver = `<b>PHP ${esc(php.version)}</b>` + (c && c.latestOnBranch ? (c.latestOnBranch === php.version ? ' · latest on ' + esc(php.branch) : ` · latest is ${esc(c.latestOnBranch)}`) : '');
-  else if (php.detected) ver = '';
-  const adv = (r.advisories || []).length ? ` <span class="adv">${r.advisories.length} advisor${r.advisories.length === 1 ? 'y' : 'ies'} apply</span>` : '';
+  else if ((r.stack || []).length) ver = esc(r.stack.join(' · '));
+  const adv = (r.advisories || []).length ? `<span class="badge destructive">${r.advisories.length} advisor${r.advisories.length === 1 ? 'y' : 'ies'}</span>` : '';
   const statusTxt = r.http && r.http.status != null ? `HTTP ${r.http.status}` : 'no response';
   el.innerHTML = `
-    <div class="head">
+    <div class="card-h">
       <span class="host">${esc(r.host || r.input)}</span>
-      <span class="verdict v-${r.verdict}">${LABEL[r.verdict] || esc(r.verdict)}</span>
-      <span class="ver">${ver}${adv}</span>
+      <span class="badge v-${r.verdict}"><i></i>${LABEL[r.verdict] || esc(r.verdict)}</span>${adv}
+      <span class="ver">${ver}</span>
       <span class="meta">${statusTxt}${r.ms ? ' · ' + r.ms + ' ms' : ''}</span>
     </div>
-    <ul class="findings">${(r.findings || []).map((x) => `<li class="${x.level}">${esc(x.text)}</li>`).join('')}</ul>
-    <details><summary>Signals, headers, redirects</summary>${detailsHtml(r)}</details>
-    <div class="actions"></div>`;
-  const actions = el.querySelector('.actions');
-  const bp = document.createElement('button'); bp.className = 'btn sm'; bp.textContent = 'Copy agent prompt';
+    <div class="card-c">
+      <ul class="findings">${(r.findings || []).map((x) => `<li class="${x.level}"><span>${esc(x.text)}</span></li>`).join('')}</ul>
+      <details><summary>Signals, headers, redirects</summary><div class="details-body">${detailsHtml(r)}</div></details>
+    </div>
+    <div class="card-f"></div>`;
+  const actions = el.querySelector('.card-f');
+  const bp = document.createElement('button'); bp.className = 'btn outline sm'; bp.textContent = 'Copy agent prompt';
   bp.onclick = () => { copyText(r.agentPrompt || 'No prompt generated.'); track('copy-agent-prompt', { verdict: r.verdict }); };
-  const bj = document.createElement('button'); bj.className = 'btn sm'; bj.textContent = 'Copy JSON';
+  const bj = document.createElement('button'); bj.className = 'btn ghost sm'; bj.textContent = 'Copy JSON';
   bj.onclick = () => copyText(JSON.stringify(r, null, 2));
   actions.append(bp, bj);
   if (r.agentPrompt) actions.appendChild(aiBar(() => r.agentPrompt, 'result'));
@@ -480,35 +552,35 @@ function detailsHtml(r) {
   const parts = [];
   if (r.comparison) {
     const c = r.comparison;
-    parts.push(`<table><tr><th>Detected</th><th>Latest on branch</th><th>Behind</th><th>Branch status</th><th>Active until</th><th>EOL</th><th>Newest branch</th></tr>
-      <tr><td class="mono">${esc(c.detected)}</td><td class="mono">${esc(c.latestOnBranch || '')} <span class="status">${esc(c.latestDate || '')}</span></td><td>${c.patchesBehind ?? '?'}</td><td>${esc(c.branchStatus)}</td><td>${esc(c.activeSupportUntil || '-')}</td><td>${esc(c.eol || '-')}</td><td>${esc(c.newestBranch || '-')}</td></tr></table>`);
+    parts.push(`<div class="tbl"><table><tr><th>Detected</th><th>Latest on branch</th><th>Behind</th><th>Branch status</th><th>Active until</th><th>EOL</th><th>Newest branch</th></tr>
+      <tr><td class="mono">${esc(c.detected)}</td><td class="mono">${esc(c.latestOnBranch || '')} <span class="muted">${esc(c.latestDate || '')}</span></td><td>${c.patchesBehind ?? '?'}</td><td>${esc(c.branchStatus)}</td><td>${esc(c.activeSupportUntil || '-')}</td><td>${esc(c.eol || '-')}</td><td>${esc(c.newestBranch || '-')}</td></tr></table></div>`);
   }
-  if ((r.advisories || []).length) parts.push(`<p><b>Advisories</b></p><ul>${r.advisories.map((a) => `<li>${esc(a.id)}: ${esc(a.title)}${a.fixedIn ? ` — fixed in ${esc(a.fixedIn)}` : ''} <a href="${esc(a.url)}" target="_blank" rel="noopener">php.net</a></li>`).join('')}</ul>`);
-  if ((r.signals || []).length) parts.push(`<p><b>Signals</b> (what was and was not available)</p><table><tr><th>Where</th><th>Source</th><th>Value</th><th>Meaning</th></tr>${r.signals.map((s) => `<tr><td>${esc(s.where)}</td><td><code>${esc(s.header)}</code></td><td><code>${esc(s.value)}</code></td><td>${esc(s.text)}</td></tr>`).join('')}</table>`);
-  else parts.push('<p class="status">No PHP-related signals in any response.</p>');
-  if ((r.http?.redirects || []).length) parts.push(`<p><b>Redirect chain</b></p><ol style="font-size:13px">${r.http.redirects.map((x) => `<li>${esc(x.from)} → <code>${x.status}</code> → ${esc(x.to || '?')}</li>`).join('')}</ol>`);
-  if ((r.http?.attempts || []).length) parts.push(`<p><b>Attempts</b></p><ul style="font-size:13px">${r.http.attempts.map((a) => `<li><code>${a.method}</code> ${esc(a.url)} → ${a.ok ? 'HTTP ' + a.status : 'failed: ' + esc(a.error || '')}</li>`).join('')}</ul>`);
+  if ((r.advisories || []).length) parts.push(`<div><h4>Advisories</h4><ul style="margin:6px 0 0;padding-left:18px;font-size:13px">${r.advisories.map((a) => `<li>${esc(a.id)}: ${esc(a.title)}${a.fixedIn ? ` — fixed in ${esc(a.fixedIn)}` : ''} <a class="link" href="${esc(a.url)}" target="_blank" rel="noopener">php.net</a></li>`).join('')}</ul></div>`);
+  if ((r.signals || []).length) parts.push(`<div><h4>Signals</h4><div class="tbl" style="margin-top:6px"><table><tr><th>Where</th><th>Source</th><th>Value</th><th>Meaning</th></tr>${r.signals.map((s) => `<tr><td>${esc(s.where)}</td><td><code>${esc(s.header)}</code></td><td><code>${esc(s.value)}</code></td><td>${esc(s.text)}</td></tr>`).join('')}</table></div></div>`);
+  else parts.push('<p class="muted">No PHP-related signals in any response.</p>');
+  if ((r.http?.redirects || []).length) parts.push(`<div><h4>Redirect chain</h4><ol style="margin:6px 0 0;padding-left:18px;font-size:13px">${r.http.redirects.map((x) => `<li>${esc(x.from)} → <code>${x.status}</code> → ${esc(x.to || '?')}</li>`).join('')}</ol></div>`);
+  if ((r.http?.attempts || []).length) parts.push(`<div><h4>Attempts</h4><ul style="margin:6px 0 0;padding-left:18px;font-size:13px">${r.http.attempts.map((a) => `<li><code>${a.method}</code> ${esc(a.url)} → ${a.ok ? 'HTTP ' + a.status : 'failed: ' + esc(a.error || '')}</li>`).join('')}</ul></div>`);
   const hdr = Object.entries(r.headers || {});
-  if (hdr.length) parts.push(`<p><b>Response headers (final)</b></p><pre>${hdr.map(([k, v]) => esc(k) + ': ' + esc(v)).join('\n')}</pre>`);
+  if (hdr.length) parts.push(`<div><h4>Response headers (final)</h4><pre style="margin-top:6px">${hdr.map(([k, v]) => esc(k) + ': ' + esc(v)).join('\n')}</pre></div>`);
   return parts.join('');
 }
 
 function renderReleases() {
   if (!releases) return;
   const rows = Object.values(releases.branches).filter((b) => b.status !== 'eol').sort((a, b) => b.branch.localeCompare(a.branch, undefined, { numeric: true }));
-  const cls = { eol: 'v-eol', security: 'v-distro', active: 'v-latest' };
+  const cls = { eol: 'v-eol', security: 'v-security', active: 'v-active' };
   const label = { eol: 'end-of-life', security: 'security only', active: 'active' };
-  $('#releases-box').innerHTML = `<table><tr><th>Branch</th><th>Latest</th><th>Status</th><th>EOL</th></tr>
-    ${rows.map((b) => `<tr><td class="mono">${esc(b.branch)}</td><td class="mono"><b>${esc(b.latest || '-')}</b></td><td><span class="verdict ${cls[b.status] || 'v-no-signal'}">${esc(label[b.status] || b.status)}</span></td><td>${esc((b.eol || '-').slice(0, 7))}</td></tr>`).join('')}</table>
-    <p class="status" style="margin:8px 0 0">Latest patches released ${esc(rows[0]?.latestDate || '')}. php.net${releases.sources.phpnet ? '' : ' (unavailable)'} · endoflife.date${releases.sources.endoflife ? '' : ' (unavailable)'} · fetched ${esc(releases.fetchedAt.replace('T', ' ').slice(0, 16))} UTC</p>`;
+  $('#releases-box').innerHTML = `<div class="tbl"><table><tr><th>Branch</th><th>Latest</th><th>Status</th><th>EOL</th></tr>
+    ${rows.map((b) => `<tr><td class="mono">${esc(b.branch)}</td><td class="mono"><b>${esc(b.latest || '-')}</b></td><td><span class="badge ${cls[b.status] || 'v-no-signal'}">${esc(label[b.status] || b.status)}</span></td><td class="muted">${esc((b.eol || '-').slice(0, 7))}</td></tr>`).join('')}</table></div>
+    <p class="muted" style="margin-top:8px;font-size:12px">Latest patches ${esc(rows[0]?.latestDate || '')} · php.net${releases.sources.phpnet ? '' : ' (unavailable)'} · endoflife.date${releases.sources.endoflife ? '' : ' (unavailable)'} · cached 6 h</p>`;
 }
 
 $('#csv').addEventListener('click', () => {
-  const cols = ['input', 'host', 'final_url', 'http_status', 'verdict', 'php_detected', 'version', 'version_source', 'distro_build', 'branch', 'latest_on_branch', 'patches_behind', 'branch_status', 'active_support_until', 'eol', 'advisories', 'server_header', 'x_powered_by', 'findings'];
+  const cols = ['input', 'host', 'final_url', 'http_status', 'verdict', 'php_detected', 'version', 'version_source', 'distro_build', 'branch', 'latest_on_branch', 'patches_behind', 'branch_status', 'active_support_until', 'eol', 'advisories', 'stack', 'server_header', 'x_powered_by', 'findings'];
   const lines = [cols.join(',')];
   for (const r of results) {
     const c = r.comparison || {}; const h = r.headers || {};
-    const row = [r.input, r.host, r.http?.finalUrl, r.http?.status, r.verdict, r.php?.detected, r.php?.version, r.php?.source, r.php?.distroBuild, r.php?.branch, c.latestOnBranch, c.patchesBehind, c.branchStatus, c.activeSupportUntil, c.eol, (r.advisories || []).map((a) => a.id).join(' '), h['server'], h['x-powered-by'], (r.findings || []).map((x) => x.text).join(' | ')];
+    const row = [r.input, r.host, r.http?.finalUrl, r.http?.status, r.verdict, r.php?.detected, r.php?.version, r.php?.source, r.php?.distroBuild, r.php?.branch, c.latestOnBranch, c.patchesBehind, c.branchStatus, c.activeSupportUntil, c.eol, (r.advisories || []).map((a) => a.id).join(' '), (r.stack || []).join(' + '), h['server'], h['x-powered-by'], (r.findings || []).map((x) => x.text).join(' | ')];
     lines.push(row.map(csv).join(','));
   }
   download('php-check.csv', lines.join('\n'), 'text/csv');

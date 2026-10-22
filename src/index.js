@@ -225,6 +225,8 @@ async function checkTarget(raw, releases) {
     http: { attempts: [], finalUrl: null, status: null, redirects: [] },
     headers: {},
     signals: [],
+    stack: [],
+    html: null,
     findings: [],
     branchInfo: null,
     comparison: null,
@@ -293,6 +295,17 @@ async function checkTarget(raw, releases) {
   // 3. Signals
   const sig = extractSignals(chain.hops, body);
   result.signals = sig.list;
+  result.stack = sig.stacks;
+  if (body) {
+    const scripts = (body.match(/<script\b[^>]*\bsrc=/gi) || []).length;
+    const inline = (body.match(/<script\b(?![^>]*\bsrc=)/gi) || []).length;
+    const forms = (body.match(/<form\b/gi) || []).length;
+    result.html = { bytes: body.length, externalScripts: scripts, inlineScripts: inline, forms, hasPhpLinks: /\.php(\?|["'])/i.test(body) };
+  }
+  const finalHost = (() => { try { return new URL(result.http.finalUrl).hostname.toLowerCase(); } catch { return null; } })();
+  if (finalHost && finalHost !== norm.host && finalHost !== 'www.' + norm.host && 'www.' + finalHost !== norm.host) {
+    result.findings.push(f('info', `${norm.host} redirects to ${finalHost}; this result describes that site.`));
+  }
 
   if (sig.phpVersion) {
     result.php.detected = true;
@@ -400,15 +413,72 @@ function headersToObject(h) {
 
 const PHP_VERSION_RE = /PHP\/(\d+\.\d+(?:\.\d+)?)([A-Za-z0-9.+~_-]*)/i;
 
+const STACK_HEADER_RULES = [
+  { header: 'x-powered-by', re: /next\.js/i, stack: 'Next.js' },
+  { header: 'x-powered-by', re: /express/i, stack: 'Express (Node.js)' },
+  { header: 'x-powered-by', re: /asp\.net/i, stack: 'ASP.NET' },
+  { header: 'x-powered-by', re: /phusion passenger/i, stack: 'Passenger (Ruby/Node)' },
+  { header: 'x-powered-by', re: /^nuxt/i, stack: 'Nuxt' },
+  { header: 'server', re: /^vercel$/i, stack: 'Vercel' },
+  { header: 'server', re: /netlify/i, stack: 'Netlify' },
+  { header: 'server', re: /^github\.com$/i, stack: 'GitHub Pages' },
+  { header: 'server', re: /squarespace/i, stack: 'Squarespace' },
+  { header: 'server', re: /^kestrel$/i, stack: 'ASP.NET Core' },
+  { header: 'server', re: /^gunicorn|^uvicorn|^waitress|^werkzeug/i, stack: 'Python' },
+  { header: 'server', re: /^cowboy$/i, stack: 'Phoenix (Elixir)' },
+  { header: 'x-vercel-id', re: /./, stack: 'Vercel' },
+  { header: 'x-nf-request-id', re: /./, stack: 'Netlify' },
+  { header: 'x-github-request-id', re: /./, stack: 'GitHub Pages' },
+  { header: 'x-shopify-stage', re: /./, stack: 'Shopify' },
+  { header: 'x-shopid', re: /./, stack: 'Shopify' },
+  { header: 'x-wix-request-id', re: /./, stack: 'Wix' },
+  { header: 'x-sc-rewrite', re: /./, stack: 'Squarespace' },
+  { header: 'x-aspnet-version', re: /./, stack: 'ASP.NET' },
+  { header: 'server', re: /^cloudflare$/i, stack: 'Cloudflare', hostOnly: true },
+  { header: 'x-amz-cf-id', re: /./, stack: 'AWS CloudFront', hostOnly: true },
+  { header: 'fly-request-id', re: /./, stack: 'Fly.io', hostOnly: true },
+  { header: 'x-render-origin-server', re: /./, stack: 'Render', hostOnly: true },
+  { header: 'x-served-by', re: /cache-/i, stack: 'Fastly', hostOnly: true },
+];
+const STACK_BODY_RULES = [
+  { re: /\/_next\/static\//, stack: 'Next.js' },
+  { re: /window\.__NUXT__|\/_nuxt\//, stack: 'Nuxt' },
+  { re: /astro-island|\/_astro\//, stack: 'Astro' },
+  { re: /__svelte|\/_app\/immutable\//, stack: 'SvelteKit' },
+  { re: /\/_remix\/|window\.__remixContext/, stack: 'Remix' },
+  { re: /gatsby-chunk-mapping|\/page-data\//, stack: 'Gatsby' },
+  { re: /<meta\s+name=["']generator["']\s+content=["']Hugo/i, stack: 'Hugo (static)' },
+  { re: /<meta\s+name=["']generator["']\s+content=["']Jekyll/i, stack: 'Jekyll (static)' },
+  { re: /<meta\s+name=["']generator["']\s+content=["']Webflow/i, stack: 'Webflow' },
+  { re: /<meta\s+name=["']generator["']\s+content=["']Framer/i, stack: 'Framer' },
+  { re: /<meta\s+name=["']generator["']\s+content=["']Wix/i, stack: 'Wix' },
+  { re: /<meta\s+name=["']generator["']\s+content=["']Ghost/i, stack: 'Ghost' },
+  { re: /Shopify\.theme|cdn\.shopify\.com/, stack: 'Shopify' },
+  { re: /static\.squarespace\.com|squarespace-cdn\.com/, stack: 'Squarespace' },
+  { re: /data-reactroot|\/static\/js\/main\.[0-9a-f]+\.js/, stack: 'React SPA' },
+  { re: /ng-version=|ng-app/, stack: 'Angular' },
+  { re: /data-v-app|__vue__|\/js\/app\.[0-9a-f]+\.js/, stack: 'Vue' },
+  { re: /Powered by Blogger|blogger\.com\/static/i, stack: 'Blogger' },
+  { re: /\/_vercel\/insights/, stack: 'Vercel' },
+];
+// Hosting/CDN layers that say nothing about the language; shown but never used to rule out PHP.
+const HOST_ONLY = new Set(['Cloudflare', 'AWS CloudFront', 'Fly.io', 'Render', 'Fastly', 'Vercel', 'Netlify']);
+
 function extractSignals(hops, body = '') {
   const list = [];
   let phpVersion = null;
   let phpLikely = false;
+  const stacks = new Map(); // stack -> evidence
+  const noteStack = (stack, evidence) => { if (!stacks.has(stack)) stacks.set(stack, evidence); };
 
   hops.forEach((hop, idx) => {
     const h = hop.headers;
     const isFinal = idx === hops.length - 1;
     const where = isFinal ? 'final response' : `redirect hop ${idx + 1}`;
+    for (const rule of STACK_HEADER_RULES) {
+      const v = h[rule.header];
+      if (v && rule.re.test(v)) noteStack(rule.stack, `${rule.header}: ${v}`);
+    }
 
     for (const name of ['x-powered-by', 'server', 'x-php-version']) {
       const val = h[name];
@@ -432,9 +502,6 @@ function extractSignals(hops, body = '') {
       }
     }
 
-    if (h['x-powered-by'] && !/php/i.test(h['x-powered-by'])) {
-      list.push(sig('stack', 'x-powered-by', h['x-powered-by'], where, `x-powered-by reports ${h['x-powered-by']}`));
-    }
     if (h['server']) {
       const s = h['server'];
       const label = /cloudflare/i.test(s)
@@ -461,9 +528,6 @@ function extractSignals(hops, body = '') {
       phpLikely = true;
       list.push(sig('cms', h['x-pingback'] ? 'x-pingback' : 'link', h['x-pingback'] || 'rel="https://api.w.org/"', where, 'WordPress markers present; WordPress always runs on PHP'));
     }
-    if (h['x-aspnet-version'] || /asp\.net/i.test(h['x-powered-by'] || '')) {
-      list.push(sig('stack', 'x-aspnet-version', h['x-aspnet-version'] || h['x-powered-by'], where, 'ASP.NET markers: this site is probably not PHP'));
-    }
     if (h['x-drupal-cache'] || h['x-drupal-dynamic-cache']) {
       phpLikely = true;
       list.push(sig('cms', 'x-drupal-cache', h['x-drupal-cache'] || h['x-drupal-dynamic-cache'], where, 'Drupal markers present; Drupal runs on PHP'));
@@ -472,11 +536,6 @@ function extractSignals(hops, body = '') {
       phpLikely = true;
       list.push(sig('cms', 'x-magento', 'present', where, 'Magento markers present; Magento runs on PHP'));
     }
-    if (h['x-shopify-stage'] || h['x-shopid']) {
-      list.push(sig('stack', 'x-shopify', 'present', where, 'Shopify storefront: hosted platform, not PHP'));
-    }
-    if (h['x-wix-request-id']) list.push(sig('stack', 'x-wix-request-id', 'present', where, 'Wix: hosted platform, not PHP'));
-    if (h['x-sc-rewrite'] || /squarespace/i.test(h['server'] || '')) list.push(sig('stack', 'server', h['server'], where, 'Squarespace: hosted platform, not PHP'));
   });
 
   if (body) {
@@ -499,7 +558,15 @@ function extractSignals(hops, body = '') {
     }
   }
 
-  return { list, phpVersion, phpLikely };
+  if (body) {
+    for (const rule of STACK_BODY_RULES) {
+      if (rule.re.test(body)) noteStack(rule.stack, 'HTML body');
+    }
+  }
+  for (const [stack, evidence] of stacks) {
+    list.push(sig('stack', evidence.split(':')[0], evidence.includes(':') ? evidence.slice(evidence.indexOf(':') + 2) : evidence, evidence === 'HTML body' ? 'page body' : 'headers', `${stack} detected`));
+  }
+  return { list, phpVersion, phpLikely, stacks: [...stacks.keys()] };
 }
 
 function sig(kind, header, value, where, text) {
@@ -520,11 +587,24 @@ function evaluate(result, releases) {
   }
 
   if (!php.detected) {
+    const app = (result.stack || []).filter((x) => !HOST_ONLY.has(x));
+    const hosts = (result.stack || []).filter((x) => HOST_ONLY.has(x));
+    if (app.length) {
+      result.verdict = 'not-php';
+      const where = hosts.length ? ` on ${hosts.join('/')}` : '';
+      result.findings.push(f('ok', `Not a PHP site: ${app.join(' + ')}${where}. No PHP patch level to check.`));
+      result.findings.push(f('info', 'Identified from framework and platform markers in the headers or HTML; see Signals for the evidence.'));
+      return;
+    }
     result.verdict = 'no-signal';
     result.findings.push(f('info', 'No PHP marker found in response headers or the first 64 KB of HTML.'));
-    result.findings.push(f('info', 'This usually means one of: PHP with expose_php=Off and no PHP-specific cookies on the homepage, a non-PHP stack, or a CDN/proxy that strips origin headers.'));
-    if (result.signals.some((s) => s.kind === 'stack')) {
-      result.findings.push(f('info', 'Other stack markers were found; see Signals. The site may simply not run PHP.'));
+    const h = result.html;
+    if (h && !h.hasPhpLinks && h.forms === 0 && h.externalScripts <= 3) {
+      result.findings.push(f('info', `The HTML looks hand-written or statically generated: ${h.externalScripts} external script${h.externalScripts === 1 ? '' : 's'}, no forms, no framework, CMS or .php markers. Most likely plain HTML${hosts.length ? ' behind ' + hosts.join('/') : ''}, with nothing to patch.`));
+    } else if (hosts.length) {
+      result.findings.push(f('info', `Served via ${hosts.join('/')}, which hides the origin server. The app could be PHP with expose_php=Off, or something else entirely.`));
+    } else {
+      result.findings.push(f('info', 'This usually means one of: PHP with expose_php=Off and no PHP-specific cookies on the homepage, a non-PHP stack, or a CDN/proxy that strips origin headers.'));
     }
     return;
   }
@@ -661,6 +741,7 @@ function buildAgentPrompt(r, releases) {
   else if (r.verdict === 'partial') goal = `Find the exact patch level of PHP ${php.version} on ${host} and bring it to ${c.latestOnBranch} if it is behind.`;
   else if (r.verdict === 'php-no-version') goal = `Find the exact PHP version behind ${host} from inside the server and confirm it is the latest patch on a supported branch.`;
   else if (r.verdict === 'unreachable' || r.verdict === 'invalid') goal = `Establish why ${host} could not be reached by an external HTTP check, then determine its PHP version from inside.`;
+  else if (r.verdict === 'not-php') goal = `${host} was identified as ${(r.stack || []).join(' + ')}, not PHP. Confirm from inside that no PHP runs anywhere on this host (legacy admin tools, a /blog on WordPress, phpMyAdmin) and close the item if none does.`;
   else goal = `Determine whether ${host} runs PHP at all, and if so which version, from inside the server.`;
 
   const steps = [];
@@ -823,7 +904,7 @@ const MCP_TOOLS = [
     name: 'check_php_version',
     title: 'Check PHP version of websites',
     description:
-      'Passively reads the PHP version one or more websites expose (X-Powered-By / Server headers and CMS markers), compares it with the current php.net releases and returns a verdict per site (latest, outdated, eol, distro, partial, php-no-version, no-signal, unreachable), the evidence, applicable advisories and a ready-made check/confirm/fix prompt. Only the homepage is requested. Max 20 targets per call.',
+      'Passively reads the PHP version one or more websites expose (X-Powered-By / Server headers and CMS markers), compares it with the current php.net releases and returns a verdict per site (latest, outdated, eol, distro, partial, php-no-version, not-php, no-signal, unreachable), the evidence, applicable advisories and a ready-made check/confirm/fix prompt. Only the homepage is requested. Max 20 targets per call.',
     inputSchema: {
       type: 'object',
       properties: {
