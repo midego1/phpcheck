@@ -58,7 +58,8 @@ export async function lookup(env, type, slug, version) {
   if (!meta) return null;
   const b = await readAsset(env, bucketPath(type, slug));
   if (!b) return null;
-  const list = b[type === 'core' ? 'wordpress' : String(slug).toLowerCase()] || [];
+  const key = type === 'core' ? 'wordpress' : String(slug).toLowerCase();
+  const list = Object.hasOwn(b, key) && Array.isArray(b[key]) ? b[key] : []; // "constructor" is a real plugin slug
   return list
     .filter((v) => !v.informational && v.ranges.some((r) => affected(version, r)))
     .sort((a, b2) => (b2.cvss ?? 0) - (a.cvss ?? 0) || String(b2.published).localeCompare(String(a.published)))

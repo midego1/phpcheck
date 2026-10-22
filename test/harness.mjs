@@ -42,6 +42,7 @@ globalThis.fetch = async (input, init = {}) => {
   feed.u1 = { id: 'u1', title: 'CF7 XSS', informational: false, published: '2024-01-01 00:00:00', references: ['https://www.wordfence.com/threat-intel/vulnerabilities/x'], cve: 'CVE-2024-0001', cvss: { score: 6.1, rating: 'Medium' },
     software: [{ type: 'plugin', slug: 'contact-form-7', name: 'Contact Form 7', affected_versions: { '* - 5.1.5': { from_version: '*', from_inclusive: true, to_version: '5.1.5', to_inclusive: true } }, patched: true, patched_versions: ['5.1.6'] }] };
   feed.u2 = { id: 'u2', title: 'Core SSRF', informational: false, published: '2022-01-01 00:00:00', references: [], software: [{ type: 'core', slug: 'wordpress', affected_versions: { '6.0 - 6.0.2': { from_version: '6.0', from_inclusive: true, to_version: '6.0.2', to_inclusive: true } }, patched: true, patched_versions: ['6.0.3'] }] };
+  feed.u4 = { id: 'u4', title: 'Prototype slug', informational: false, software: [{ type: 'plugin', slug: 'constructor', affected_versions: { '* - 1.0': { from_version: '*', from_inclusive: true, to_version: '1.0', to_inclusive: true } }, patched: true, patched_versions: ['1.1'] }] };
   feed.u3 = { id: 'u3', title: 'Info only', informational: true, software: [{ type: 'plugin', slug: 'contact-form-7', affected_versions: { '*': { from_version: '*', from_inclusive: true, to_version: '*', to_inclusive: true } }, patched: false, patched_versions: [] }] };
   const feedFile = join(dir, 'feed.json'); writeFileSync(feedFile, JSON.stringify(feed));
   const out = join(dir, 'vuln');
@@ -54,9 +55,13 @@ globalThis.fetch = async (input, init = {}) => {
   const t4 = await wf.lookup(env, 'core', 'wordpress', '6.0.3');
   const t5 = await wf.lookup(env, 'plugin', 'contact-form-7', null);
   const t6 = await wf.lookup({ ASSETS: { fetch: async () => new Response('', { status: 404 }) } }, 'plugin', 'contact-form-7', '1.0');
+  const t7 = await wf.lookup(env, 'plugin', 'constructor', '0.9');
+  const t8 = await wf.lookup(env, 'plugin', 'toString', '0.9');
   const meta = JSON.parse(readFileSync(join(out, 'meta.json'), 'utf8'));
   for (const [name, ok] of [
-    ['wordfence: index built with meta', meta.entries === 1003 && meta.files >= 3],
+    ['wordfence: index built with meta', meta.entries === 1004 && meta.files >= 3],
+    ['wordfence: slug "constructor" indexed and found', t7.length === 1],
+    ['wordfence: slug "toString" with no records is empty', t8.length === 0],
     ['wordfence: cf7 5.0.0 affected with CVE and fix, informational excluded', t1.length === 1 && t1[0].fixedIn === '5.1.6' && t1[0].cve === 'CVE-2024-0001' && t1[0].rating === 'Medium'],
     ['wordfence: cf7 5.1.6 clean', t2.length === 0],
     ['wordfence: core 6.0.1 affected', t3.length === 1],
