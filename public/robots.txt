@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://phpcheck.midego.net/sitemap.xml
