@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to check which PHP version a website uses | PHP Check</title>
+<meta name="description" content="How to find out which PHP version a website runs: the X-Powered-By header, what to do when it is hidden, and how to compare the result with supported PHP releases.">
+<link rel="canonical" href="https://phpcheck.midego.net/php-version-checker">
+<style>
+  :root{color-scheme:light dark;--fg:#09090b;--bg:#fff;--muted:#71717a;--code:#f4f4f5}
+  @media (prefers-color-scheme:dark){:root{--fg:#fafafa;--bg:#09090b;--muted:#a1a1aa;--code:#27272a}}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.65 ui-sans-serif,system-ui,sans-serif}
+  main{max-width:720px;margin:0 auto;padding:40px 24px}
+  h1,h2{letter-spacing:-.02em;line-height:1.25}
+  h2{margin-top:32px;font-size:20px}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--code);border-radius:4px}
+  code{padding:.1em .35em;font-size:.9em}
+  pre{padding:12px;overflow:auto}
+  a{color:inherit}.muted{color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <p><a href="/">&larr; PHP Check</a></p>
+  <h1>How to check which PHP version a website uses</h1>
+  <p class="muted">A site only tells you its PHP version if the server exposes it. Here is what to look at, what it can and cannot prove, and how PHP Check automates it.</p>
+
+  <h2>1. Read the response headers</h2>
+  <p>Many servers send the PHP version in an <code>X-Powered-By</code> header. Request just the headers:</p>
+  <pre>curl -sI https://example.com | grep -i x-powered-by
+X-Powered-By: PHP/8.2.12</pre>
+  <p>The <code>Server</code> header can also name PHP when it runs as an Apache module, for example <code>Apache/2.4.58 (Ubuntu) PHP/8.2.12</code>.</p>
+
+  <h2>2. When the version is hidden</h2>
+  <p>Setting <code>expose_php = Off</code> in <code>php.ini</code> removes the <code>X-Powered-By</code> header, and many hosts and CDNs strip it anyway. No header means the version is not exposed, not that the site is not running PHP. Other hints, such as <code>.php</code> URLs, PHPSESSID cookies or WordPress markup, show PHP is in use but not which version. Those hints are not a version number, so PHP Check reports the version as unknown rather than guessing.</p>
+
+  <h2>3. Compare with supported releases</h2>
+  <p>A version number only matters next to the current releases. Each PHP branch moves through active support, security-only support and end of life. Running 8.2.12 when 8.2.x has a newer patch release means missing fixes; running a branch past end of life means no more security fixes at all. The official list is on <a href="https://www.php.net/supported-versions.php" rel="noopener">php.net</a>.</p>
+
+  <h2>Doing it with PHP Check</h2>
+  <p>Enter one or more domains on the <a href="/">PHP Check homepage</a>. It requests only each site's homepage, reads the exposed PHP version, compares it with the current releases from php.net, and writes a check-and-fix prompt for your agent. It handles up to 300 domains at once. The same check is available over the JSON API and the MCP endpoint, both described on the homepage. The code is <a href="https://github.com/midego1/phpcheck" rel="noopener">open source</a>.</p>
+</main>
+</body>
+</html>
